@@ -1179,10 +1179,23 @@ export function initDatabase(dbPath: string, options?: { runCleanup?: boolean; r
         AND v.id NOT IN (SELECT video_id FROM video_segments)
         AND v.id NOT IN (SELECT photo_id FROM index_queue WHERE task_type = 'extract_frames' AND status IN ('pending', 'processing', 'error'))
     `),
+    // ≤0.5.0 打包版 spawn 不了 asar 里的 ffmpeg：探测时长失败，视频被标成"扫过了、读不到"（frame_count=0）。
+    // 先把这些视频的标记清掉，下面的"缺片段"补排才会选中它们
+    resetSpawnFailedVideos: db.prepare(`
+      UPDATE videos SET frame_count = NULL
+      WHERE frame_count = 0 AND id IN (
+        SELECT photo_id FROM index_queue
+        WHERE task_type = 'extract_frames' AND status = 'error'
+          AND (error_msg LIKE 'spawn ENOTDIR%' OR error_msg LIKE 'spawn ENOENT%')
+      )
+    `),
+    // 环境原因的失败（模型没就绪、推理进程挂了、≤0.5.0 打包版 spawn 不了 asar 里的 ffmpeg）：
+    // 启动时清掉，让下面的"缺向量 / 缺片段"补排重新跑；坏文件的错误留给任务面板
     clearModelNotReadyErrors: db.prepare(`
       DELETE FROM index_queue
       WHERE task_type IN ('embed', 'extract_frames') AND status = 'error'
-        AND (error_msg LIKE 'Embedding model not ready%' OR error_msg LIKE 'Inference process exited%')
+        AND (error_msg LIKE 'Embedding model not ready%' OR error_msg LIKE 'Inference process exited%'
+          OR error_msg LIKE 'spawn ENOTDIR%' OR error_msg LIKE 'spawn ENOENT%')
     `),
     getPhotosWithoutEmbedding: db.prepare(`
       SELECT p.id, p.file_hash FROM photos p
@@ -1861,6 +1874,7 @@ export function initDatabase(dbPath: string, options?: { runCleanup?: boolean; r
     requeueMissingEmbeddings: db.transaction((): number => {
       // 模型未就绪 / 推理进程退出（崩溃、看门狗）的失败可以自动重来（先删掉旧的失败行，免得队列里一条媒体两行）；
       // 单文件失败（坏图 / 解码失败）不自动重排，留在任务面板由用户重试，避免每次启动白跑
+      stmts.resetSpawnFailedVideos.run()
       stmts.clearModelNotReadyErrors.run()
       const photos = stmts.getPhotosWithoutEmbedding.all() as Array<{ id: number }>
       for (const photo of photos) {

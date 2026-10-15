@@ -17,23 +17,9 @@ import { mkdtemp, readFile, readdir, rm } from 'fs/promises'
 import { setPriority, tmpdir } from 'os'
 import { join } from 'path'
 import type { ExtractedFrame, ExtractOptions } from './types'
+import { getFfmpegPath } from './ffmpegPath'
 
 export type { ExtractedFrame, ExtractOptions } from './types'
-
-// ffmpeg-static 在 install 时把二进制放到包目录；require() 返回路径或 null
-let ffmpegPath: string | null | undefined
-function getFfmpegPath(): string | null {
-  if (ffmpegPath === undefined) {
-    try {
-      // 用 eval require 避免被 bundler 静态分析时尝试解析（electron-vite 期间）
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      ffmpegPath = (require('ffmpeg-static') as string | null) || null
-    } catch {
-      ffmpegPath = null
-    }
-  }
-  return ffmpegPath
-}
 
 export function isFfmpegAvailable(): boolean {
   return getFfmpegPath() !== null
