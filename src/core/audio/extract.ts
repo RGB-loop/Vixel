@@ -14,19 +14,7 @@
 
 import { spawn } from 'child_process'
 import { FFMPEG_THREADS, lowerPriority } from '../video/extract'
-
-// 复用 video/extract.ts 的 ffmpeg 路径获取逻辑
-let ffmpegPath: string | null | undefined
-function getFfmpegPath(): string | null {
-  if (ffmpegPath === undefined) {
-    try {
-      ffmpegPath = (require('ffmpeg-static') as string | null) || null
-    } catch {
-      ffmpegPath = null
-    }
-  }
-  return ffmpegPath
-}
+import { getFfmpegPath } from '../video/ffmpegPath'
 
 export function isFfmpegAvailable(): boolean {
   return getFfmpegPath() !== null

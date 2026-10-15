@@ -10,6 +10,7 @@ import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { IPC_CHANNELS, type MenuCommand } from '../shared/types'
 import { t } from '../shared/i18n'
+import { getFfmpegPath } from '../core/video/ffmpegPath'
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
@@ -436,8 +437,8 @@ const VIDEO_SCENES: Scene[] = [
 export async function runRecording(win: BrowserWindow, outPath: string, hooks: CaptureHooks = {}): Promise<void> {
   if (process.env.VIXEL_PROMO === 'panel' && hooks.quickPanel) return runPanelRecording(win, outPath, hooks.quickPanel)
   const { spawn } = await import('child_process')
-  const mod = (await import('ffmpeg-static')) as unknown as { default?: string } & string
-  const ffmpeg = (mod.default ?? mod) as string
+  const ffmpeg = getFfmpegPath()
+  if (!ffmpeg) throw new Error('ffmpeg-static not available')
   const FPS = 30
   win.setContentSize(1280, 720)
   win.center()
@@ -492,8 +493,8 @@ export async function runRecording(win: BrowserWindow, outPath: string, hooks: C
 
 async function runPanelRecording(win: BrowserWindow, outPath: string, qp: { show: () => BrowserWindow; hide: () => void }): Promise<void> {
   const { spawn } = await import('child_process')
-  const mod = (await import('ffmpeg-static')) as unknown as { default?: string } & string
-  const ffmpeg = (mod.default ?? mod) as string
+  const ffmpeg = getFfmpegPath()
+  if (!ffmpeg) throw new Error('ffmpeg-static not available')
   const sharp = (await import('sharp')).default
   const FPS = 30
   const W = 1920

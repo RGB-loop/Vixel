@@ -21,7 +21,8 @@ jobs:
         # macos-14 / macos-15 = Apple Silicon runners
         # ubuntu 用来验证非 macOS 的 ONNX/jieba 二进制能正常解析
         os: [macos-14, ubuntu-latest]
-        node: ['20']
+        # 22：服务器版（Docker 镜像）跑在 Node 22 上，pdf.js 用到 Promise.withResolvers（Node 20 没有）
+        node: ['22']
 
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +37,10 @@ jobs:
       # 用 --ignore-scripts 大幅缩短 install 时间并绕开 node-gyp 在 CI 上的不稳定
       - name: Install (skip native build)
         run: npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+
+      # --ignore-scripts 也跳过了 ffmpeg-static 的下载；视频相关测试要真的 ffmpeg 二进制
+      - name: Fetch ffmpeg binary
+        run: node node_modules/ffmpeg-static/install.js
 
       - name: Typecheck
         run: npm run typecheck

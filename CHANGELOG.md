@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-15
+
+### Fixed
+- **Videos and audio failed to index in the installed apps (macOS and Windows).** The
+  packaged app started ffmpeg from a path inside `app.asar`, which `spawn` can't execute
+  (`spawn ENOTDIR` on macOS, `ENOENT` on Windows), so every video and audio file errored
+  and had no searchable segments. ffmpeg now runs from `app.asar.unpacked`. This affected
+  every desktop release since 0.2.0 (development builds and the Docker image were fine,
+  which is why tests missed it); `scripts/packaged-video-check.sh` now indexes videos with
+  the packaged app before each release. Thanks to the V2EX user who reported it. After
+  updating, videos that failed are re-indexed automatically on the next launch.
+
 ## [0.5.0] - 2026-10-15
 
 ### Added

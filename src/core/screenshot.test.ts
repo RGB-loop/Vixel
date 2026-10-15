@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { execFileSync } from 'child_process'
 import { mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -37,15 +37,18 @@ describe('inScreenshotsFolder', () => {
 })
 
 // macOS 真实 xattr：写一个带 / 不带属性的文件，经 koffi getxattr 读回
+// runIf 只跳过用例，describe 体在收集阶段照样执行 —— 建文件 / 调 xattr 必须放进 beforeAll，否则 Linux CI 直接报错
 describe.runIf(process.platform === 'darwin')('xattrIsScreenCapture (darwin)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'vx-shot-'))
   const plain = join(dir, 'plain.png')
   const marked = join(dir, 'marked.png')
-  writeFileSync(plain, 'x')
-  writeFileSync(marked, 'x')
-  // Spotlight 写的是 bplist 布尔 true；属性存在与否才是判据，值随便
-  execFileSync('xattr', ['-wx', 'com.apple.metadata:kMDItemIsScreenCapture',
-    '62706c6973743030090800000000000001010000000000000001000000000000000000000000000000090a', marked])
+  beforeAll(() => {
+    writeFileSync(plain, 'x')
+    writeFileSync(marked, 'x')
+    // Spotlight 写的是 bplist 布尔 true；属性存在与否才是判据，值随便
+    execFileSync('xattr', ['-wx', 'com.apple.metadata:kMDItemIsScreenCapture',
+      '62706c6973743030090800000000000001010000000000000001000000000000000000000000000000090a', marked])
+  })
 
   it('属性在 → true，不在 → false，文件不存在 → false（名字模式兜底）', () => {
     expect(xattrIsScreenCapture(marked)).toBe(true)
