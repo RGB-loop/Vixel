@@ -10,6 +10,7 @@
  */
 import './bootstrap' // 必须第一个 import：普通 Node 下重定向 better-sqlite3 到 Node ABI 构建
 import '../core/inference/noTelemetry' // 在加载 onnxruntime 之前关掉它的遥测
+import '../core/stdioGuard' // 日志管道断了不让进程崩
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
