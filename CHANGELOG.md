@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which is why tests missed it); `scripts/packaged-video-check.sh` now indexes videos with
   the packaged app before each release. Thanks to the V2EX user who reported it. After
   updating, videos that failed are re-indexed automatically on the next launch.
+- Launching Vixel from a terminal and then closing that terminal no longer pops up a
+  "JavaScript error occurred in the main process" dialog (`write EPIPE`).
 
 ## [0.5.0] - 2026-10-15
 
