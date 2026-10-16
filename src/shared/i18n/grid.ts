@@ -7,7 +7,7 @@ const zh = {
   cannotPlay: '此格式无法在应用内播放',
   openInSystemPlayer: '在系统播放器中打开',
   playerHint: 'Space 播放/暂停 · J / L 后退/前进 10 秒 · M 静音',
-  segments: (n: number) => `片段 ${n}`,
+  segments: (n: number) => `${n} 个片段`,
   hit: (range: string) => ` · 命中 ${range}`,
   weakerMatches: (n: number) => `较弱的匹配 (${n})`,
   weakerMatchesHide: '收起较弱的匹配',
