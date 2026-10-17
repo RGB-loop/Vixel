@@ -28,6 +28,7 @@ import { registerTagIpc } from './tags'
 import { registerCollectIpc } from './collect'
 import { registerAutoTags } from './autotags'
 import { registerPdfRenderer, disposePdfRenderer, releasePdfWindowIfLast, PDF_ASSET_SCHEME } from './pdfRender'
+import { voiceStatus, voiceTranscribe, requestMicAccess } from './voice'
 import { timed, watchEventLoop, perfSnapshot, PROFILE } from '../core/perf'
 import { setInferenceTransport } from '../core/inference/transport'
 import { initDeepLinks, activateDeepLinks } from './deeplink'
@@ -484,6 +485,11 @@ function registerIpcHandlers(): void {
   handle(IPC_CHANNELS.FIND_SIMILAR, async (_event, photoId: number, limit?: number) => api.findSimilar(photoId, limit))
   // 以图搜图：拖入 / 粘贴的查询图只在内存和临时文件里处理，不进资料库（见 core/imageSearch.ts）
   handle(IPC_CHANNELS.SEARCH_BY_IMAGE, async (_event, input: ImageQueryInput, limit?: number, options?: MediaFilters) => api.searchByImage(input, limit, options))
+
+  // 语音输入（macOS 系统级离线听写；录音在渲染进程，转写在 vixel-speech 辅助进程，见 ./voice.ts）
+  handle(IPC_CHANNELS.VOICE_STATUS, async () => voiceStatus())
+  handle(IPC_CHANNELS.VOICE_REQUEST_MIC, async () => requestMicAccess())
+  handle(IPC_CHANNELS.VOICE_TRANSCRIBE, async (_event, wav: Uint8Array) => voiceTranscribe(wav))
 
   // 文件夹选择对话框是桌面专属；增删文件夹在服务层
   handle(IPC_CHANNELS.SELECT_FOLDER, async () => {

@@ -12,5 +12,8 @@
     <true/>
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>
+    <!-- 语音搜索：麦克风（加固运行时下没有它 getUserMedia 直接失败；录音只在本机转写） -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
 </dict>
 </plist>

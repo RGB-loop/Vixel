@@ -75,6 +75,11 @@ mac:
     NSDownloadsFolderUsageDescription: Vixel 只读访问你添加的文件夹，在本机为其中的照片和视频建立索引，不会修改或上传任何文件。
     NSRemovableVolumesUsageDescription: Vixel 只读访问移动硬盘上你添加的文件夹，在本机建立索引，不会修改或上传任何文件。
     NSNetworkVolumesUsageDescription: Vixel 只读访问网络磁盘上你添加的文件夹，在本机建立索引，不会修改或上传任何文件。
+    NSMicrophoneUsageDescription: Vixel 使用麦克风接收语音搜索；录音只在本机转写成文字，不会保存、不会上传。
+  # 语音转写辅助程序（scripts/build-speech-helper.mjs 编译；没编译出来也不影响打包，语音输入按不可用处理）
+  extraResources:
+    - from: resources/speech
+      to: speech
   # 公证：默认 false（dev / 无证书机器）。CI release 用 CLI override 打开：
   #   electron-builder --mac --c.mac.notarize=true
   # 配合 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID 环境变量

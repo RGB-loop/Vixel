@@ -146,6 +146,14 @@ export async function createWebApi(): Promise<Api> {
       return Promise.reject(new Error('searchByImage by local path is not available in the web edition'))
     },
     getPathForFile: (): string => '',
+
+    // 语音输入：网页版没有离线转写引擎（浏览器 Web Speech API 会把音频送云端，违背离线承诺，
+    // 不用；服务器侧也还没有达标的离线引擎）。status 恒不可用 → 界面不显示麦克风
+    voice: {
+      status: async (): Promise<import('../shared/types').VoiceStatus> => ({ available: false, reason: 'platform' }),
+      requestMic: async (): Promise<boolean> => false,
+      transcribe: desktopOnly('voice.transcribe') as () => Promise<import('../shared/types').VoiceTranscribeResult>,
+    },
     getPhotosWithGPS: () => post<import('../shared/types').Photo[]>('getPhotosWithGPS'),
 
     // 文件夹管理（网页版只读展示：addFolder/removeFolder 服务器有实现，但 UI 不提供入口）
