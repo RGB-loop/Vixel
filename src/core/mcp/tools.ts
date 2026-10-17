@@ -100,13 +100,15 @@ function httpUrlFor(photo: Photo, base: string | null | undefined): string | und
   return photo.videoId != null ? `${root}/media/media/${photo.videoId}` : `${root}/media/image/${photo.id}`
 }
 
-function resultItem(r: SearchResult, extra: McpCallExtra): Record<string, unknown> {
+function resultItem(ctx: McpToolContext, r: SearchResult, extra: McpCallExtra): Record<string, unknown> {
   const p = r.photo
+  // 音视频的 photo 行是代表图（抽帧 / 封面）：路径要给源文件的
+  const source = p.videoId != null ? ctx.db.getVideoById(p.videoId) : undefined
   return {
     id: p.id,
     ...(p.videoId != null ? { videoId: p.videoId } : {}),
-    name: p.fileName,
-    path: p.filePath,
+    name: source?.fileName ?? p.fileName,
+    path: source?.filePath ?? p.filePath,
     type: p.mediaKind ?? 'image',
     hash: p.fileHash,
     score: Math.round(r.score * 1000) / 1000,
@@ -130,7 +132,7 @@ async function searchMedia(ctx: McpToolContext, args: Record<string, unknown>, e
     count: results.length,
     // 整组低置信 = 库里没有明显相关的内容，这些只是"最接近"的
     ...(results.length > 0 && results.every((r) => r.lowConfidence) ? { noConfidentMatch: true } : {}),
-    items: results.map((r) => resultItem(r, extra)),
+    items: results.map((r) => resultItem(ctx, r, extra)),
   }
 }
 
@@ -185,7 +187,7 @@ function findSimilar(ctx: McpToolContext, args: Record<string, unknown>, extra: 
   if (!photo?.fileHash) return { found: false, items: [] }
   const limit = clampLimit(args.limit, 12)
   const results = ctx.searchEngine.findSimilar(photo.fileHash, limit)
-  return { found: true, count: results.length, items: results.map((r) => resultItem(r, extra)) }
+  return { found: true, count: results.length, items: results.map((r) => resultItem(ctx, r, extra)) }
 }
 
 export interface McpToolOutcome {

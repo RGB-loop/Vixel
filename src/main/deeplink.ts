@@ -46,6 +46,7 @@ function handle(url: string): void {
   }
   const result = deps.resolve(target)
   if (result) {
+    console.log(`[deeplink] opening ${url}`)
     deps.open(result)
     return
   }

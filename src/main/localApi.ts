@@ -144,6 +144,7 @@ export class LocalApiServer {
     // LAN 必须有口令（update 已拦；这里兜底防直接改库）
     if (lan && !this.password) {
       this.error = 'password-required'
+      console.warn('[localapi] LAN access requires a password — not starting')
       return Promise.resolve()
     }
     const app = createServerApp({

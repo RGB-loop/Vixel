@@ -217,8 +217,10 @@ function resolveDeepLinkTarget(target: DeepLinkTarget): SearchResult | null {
   const result: SearchResult = { photo, score: 1 }
   if (target.timeMs != null && photo.videoId != null) {
     const ms = target.timeMs
+    // 正好是某个已索引片段的起点（"拷贝链接"产出的就是）→ 用整段，详情页时间轴能整段高亮；
+    // 任意时间点 → 起点保持精确（播放器按 startMs seek），终点借所在片段的
     const seg = db.getMediaDetail(photo.videoId)?.segments.find((s) => ms >= s.startMs && ms < s.endMs)
-    result.segment = seg ?? { startMs: ms, endMs: ms }
+    result.segment = seg && seg.startMs === ms ? seg : { startMs: ms, endMs: Math.max(ms, seg?.endMs ?? ms) }
   }
   return result
 }
