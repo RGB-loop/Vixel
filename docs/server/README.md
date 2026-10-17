@@ -119,6 +119,31 @@ volumes:
 | `VIXEL_PORT` | `8080` | 容器内监听端口 |
 | `VIXEL_COOKIE_SECURE` | 关 | `=1` 会话 cookie 永远带 `Secure`（全程 HTTPS 时用） |
 | `VIXEL_TRUST_PROXY` | 关 | `=1` 信任反代头：`X-Forwarded-Proto` 为 https 时自动加 `Secure`，登录限速按 `X-Forwarded-For` 计 |
+| `VIXEL_MCP_TOKEN` | （不设 = 关闭） | 开启 `/mcp` 端点（AI 客户端的只读 MCP 接口）的 Bearer 令牌，≥ 16 位。生成：`openssl rand -base64 24` |
+
+## MCP（AI 客户端接口）
+
+设置 `VIXEL_MCP_TOKEN` 后，服务器在 `/mcp` 提供一个 [MCP](https://modelcontextprotocol.io)
+端点（Streamable HTTP），AI 客户端 / Agent 可以用自然语言查询媒体库。工具**全部只读**：
+`search_media`（语义 + 图内文字 + 文件名搜索，命中视频时间段，带 vixel:// 深链接和 http 媒体链接）、
+`get_media`（单项详情：OCR 文字、标签、人物等）、`find_similar`（找相似）。
+
+```yaml
+    environment:
+      VIXEL_MCP_TOKEN: "用 openssl rand -base64 24 生成"
+```
+
+客户端配置（以 Claude Desktop / Cursor 的远程 MCP 为例）：URL `http://<主机>:8080/mcp`，
+HTTP 头 `Authorization: Bearer <令牌>`。验证：
+
+```bash
+curl -s http://<主机>:8080/mcp -H "Authorization: Bearer <令牌>" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+注意：搜索结果（文件名、路径、识别出的文字等）会发给你连接的那个 AI 客户端；令牌与登录口令
+相互独立，泄露任何一个都应立即更换。
 
 ## 反向代理 / HTTPS
 
@@ -251,6 +276,32 @@ search instant. Lower `VIXEL_THREADS` (e.g. `2`) for a gentler, slower index.
 | `VIXEL_PORT` | `8080` | Port inside the container |
 | `VIXEL_COOKIE_SECURE` | off | `=1` always sets `Secure` on the session cookie (all-HTTPS setups) |
 | `VIXEL_TRUST_PROXY` | off | `=1` trusts proxy headers: `Secure` cookie when `X-Forwarded-Proto` is https, login rate limit keyed by `X-Forwarded-For` |
+| `VIXEL_MCP_TOKEN` | (unset = disabled) | Bearer token that enables the `/mcp` endpoint (read-only MCP interface for AI clients), min 16 chars. Generate: `openssl rand -base64 24` |
+
+## MCP (AI client interface)
+
+With `VIXEL_MCP_TOKEN` set, the server exposes an [MCP](https://modelcontextprotocol.io)
+endpoint (Streamable HTTP) at `/mcp`, so AI clients and agents can query the library in
+natural language. All tools are **read-only**: `search_media` (semantic + text-in-image +
+filename search, with matched video time ranges, a vixel:// deep link and an http media link),
+`get_media` (details of one item: OCR text, tags, people, …) and `find_similar`.
+
+```yaml
+    environment:
+      VIXEL_MCP_TOKEN: "generate with: openssl rand -base64 24"
+```
+
+Client setup (remote MCP in Claude Desktop / Cursor): URL `http://<host>:8080/mcp` with the
+HTTP header `Authorization: Bearer <token>`. To verify:
+
+```bash
+curl -s http://<host>:8080/mcp -H "Authorization: Bearer <token>" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Note: search results (file names, paths, recognized text, …) are sent to whichever AI client
+you connect. The token is independent of the login password; rotate either immediately if leaked.
 
 ## Reverse proxy / HTTPS
 

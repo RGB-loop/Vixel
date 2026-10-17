@@ -14,6 +14,8 @@
  *   VIXEL_COOKIE_SECURE  =1 会话 cookie 加 Secure（仅 HTTPS 反代场景；纯 HTTP 下登录会失效）
  *   VIXEL_TRUST_PROXY    =1 信任反代头：X-Forwarded-Proto=https 时自动加 Secure，
  *                        登录限速按 X-Forwarded-For 的客户端 IP 计
+ *   VIXEL_MCP_TOKEN      /mcp 端点（AI 客户端的只读 MCP 接口）的 bearer 令牌，≥ 16 位；
+ *                        不设则 /mcp 关闭。生成：openssl rand -base64 24
  */
 import { isAbsolute, join, resolve } from 'path'
 
@@ -31,6 +33,8 @@ export interface ServerConfig {
   cookieSecure: boolean
   /** 信任反代头（VIXEL_TRUST_PROXY=1）：X-Forwarded-Proto → Secure；X-Forwarded-For → 限速 IP */
   trustProxy: boolean
+  /** /mcp 的 bearer 令牌（VIXEL_MCP_TOKEN）；null = /mcp 关闭 */
+  mcpToken: string | null
 }
 
 export class ConfigError extends Error {}
@@ -62,6 +66,12 @@ export function parseServerConfig(env: Record<string, string | undefined>, repoR
     throw new ConfigError('VIXEL_PASSWORD must be at least 4 characters')
   }
 
+  // MCP 令牌是机器配置、不用人记：短令牌没有理由存在，直接拒绝
+  const mcpToken = env.VIXEL_MCP_TOKEN?.trim() || null
+  if (mcpToken && mcpToken.length < 16) {
+    throw new ConfigError('VIXEL_MCP_TOKEN must be at least 16 characters (try: openssl rand -base64 24)')
+  }
+
   return {
     dataDir: resolve(dataDir),
     libraryDirs,
@@ -74,5 +84,6 @@ export function parseServerConfig(env: Record<string, string | undefined>, repoR
     webDir: env.VIXEL_WEB_DIR?.trim() || join(repoRoot, 'dist', 'web'),
     cookieSecure: env.VIXEL_COOKIE_SECURE === '1',
     trustProxy: env.VIXEL_TRUST_PROXY === '1',
+    mcpToken,
   }
 }

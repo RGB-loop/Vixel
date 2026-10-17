@@ -31,6 +31,8 @@ import { registerPdfRenderer, disposePdfRenderer, releasePdfWindowIfLast, PDF_AS
 import { timed, watchEventLoop, perfSnapshot, PROFILE } from '../core/perf'
 import { setInferenceTransport } from '../core/inference/transport'
 import { initDeepLinks, activateDeepLinks } from './deeplink'
+import { LocalApiServer } from './localApi'
+import { LOCALAPI_CHANNELS, type LocalApiPatch } from '../shared/localapi'
 import type { DeepLinkTarget } from '../shared/deeplink'
 import { createServices, META_KEY_INDEX_ON_BATTERY, type VixelServices } from '../services/api'
 import { createServiceEvents } from '../services/events'
@@ -75,7 +77,9 @@ let watcher: FileWatcher
 let indexer: Indexer
 let searchEngine: SearchEngine
 let services: VixelServices
+let serviceEvents: ReturnType<typeof createServiceEvents>
 let inference: InferenceProcess | null = null
+let localApi: LocalApiServer | null = null
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let quickPanel: QuickPanelController | null = null
@@ -309,6 +313,7 @@ async function initServices(): Promise<void> {
 
   // 服务层事件总线 → 各窗口的 IPC 事件（频道与 renderer 的 window.api.on* 对应）
   const events = createServiceEvents()
+  serviceEvents = events
   events.on((channel, payload) => {
     switch (channel) {
       case 'library-changed': return broadcast(IPC_CHANNELS.LIBRARY_CHANGED)
@@ -597,6 +602,11 @@ function registerIpcHandlers(): void {
   // 备份：手动触发 + 状态查询
   handle(IPC_CHANNELS.TRIGGER_BACKUP, async () => api.triggerBackup())
   handle(IPC_CHANNELS.GET_BACKUP_STATUS, async () => api.getBackupStatus())
+
+  // 本地接口（设置 › 通用）：HTTP API + 网页界面 + /mcp（见 ./localApi.ts）
+  handle(LOCALAPI_CHANNELS.STATUS, async () => localApi!.status())
+  handle(LOCALAPI_CHANNELS.SET, async (_event, patch: LocalApiPatch) => localApi!.update(patch))
+  handle(LOCALAPI_CHANNELS.NEW_TOKEN, async () => localApi!.regenerateToken())
 }
 
 /**
@@ -748,6 +758,19 @@ app.whenReady().then(async () => {
   if (process.env.VIXEL_RECORD) await session.defaultSession.clearStorageData({ storages: ['localstorage'] })
   enforceOfflinePolicy()
   registerVixelProtocol()
+  // 本地接口（默认关闭）：开着时在主进程内跑服务器版同一套 HTTP 栈，复用上面这套 services。
+  // 只监听、不发起任何对外请求，渲染进程的离线白名单不受影响
+  const prodWebDir = join(process.resourcesPath, 'web')
+  localApi = new LocalApiServer({
+    db,
+    services,
+    events: serviceEvents,
+    searchEngine,
+    dataDir: app.getPath('userData'),
+    webDir: existsSync(prodWebDir) ? prodWebDir : join(process.cwd(), 'dist', 'web'),
+    version: app.getVersion(),
+  })
+  localApi.startIfEnabled()
   // PDF / AI 的 pdf.js 栅格化服务（隐藏窗口按需创建；Windows/Linux 主路径，macOS 兜底）
   registerPdfRenderer()
   registerIpcHandlers()
@@ -816,6 +839,8 @@ app.on('before-quit', () => {
   isQuitting = true
   // 全局快捷键 / 托盘 / 常驻面板窗口：退出前注销并销毁
   quickPanel?.dispose()
+  // 本地接口：先掐连接再关库（残余请求别打在已关闭的库上）
+  void localApi?.stop()
   // VIXEL_PROFILE=1：退出时打印本次会话最慢的操作（p50 / p95 / max）
   if (PROFILE) console.table(perfSnapshot().slice(0, 25).map((r) => ({ ...r, p50: +r.p50.toFixed(1), p95: +r.p95.toFixed(1), max: +r.max.toFixed(1) })))
   watcher?.stopAll()
