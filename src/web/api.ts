@@ -217,6 +217,7 @@ export async function createWebApi(): Promise<Api> {
     retryFailedTasks: (ids?: number[]) => post<number>('retryFailedTasks', argsOf(ids)),
     clearFailedTasks: () => post<number>('clearFailedTasks'),
     getMediaDetail: (videoId: number) => post<import('../shared/types').MediaDetail | null>('getMediaDetail', [videoId]),
+    resolveLink: (target: import('../shared/deeplink').DeepLinkTarget) => post<SearchResult | null>('resolveLink', [target]),
 
     // 系统 / 模型状态
     getAppPath: () => post<string>('getAppPath'),

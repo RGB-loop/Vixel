@@ -79,13 +79,15 @@ describe('MCP server core', () => {
     expect(items[0]).toMatchObject({
       id: 1, name: 'beach.jpg', type: 'image',
       link: 'vixel://open?hash=aa11bb22cc33dd44&id=1',
-      httpUrl: 'http://127.0.0.1:41721/media/image/1',
+      httpUrl: 'http://127.0.0.1:41721/open?hash=aa11bb22cc33dd44&id=1',
+      mediaUrl: 'http://127.0.0.1:41721/media/image/1',
     })
     expect(items[1]).toMatchObject({
       videoId: 7,
       timeRange: { startSec: 32, endSec: 64 },
       link: 'vixel://open?hash=deadbeef00112233&video=7&t=32',
-      httpUrl: 'http://127.0.0.1:41721/media/media/7',
+      httpUrl: 'http://127.0.0.1:41721/open?hash=deadbeef00112233&video=7&t=32',
+      mediaUrl: 'http://127.0.0.1:41721/media/media/7',
     })
   })
 

@@ -20,7 +20,8 @@ import { thumbUrl } from './lib/mediaUrl'
 import { sourcePathOf } from './lib/resultActions'
 import { useSearchHistory, normalizeQuery } from './lib/searchHistory'
 import { t } from '../../shared/i18n'
-import { deepLinkForItem, markdownLinkForItem } from '../../shared/deeplink'
+import { deepLinkForItem, markdownLinkForItem, parseLinkParams, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../shared/deeplink'
+import { copyText, useWebLinkBase } from './lib/webLinks'
 import { FilterBar, hasExtraFilters, countExtraFilters, describeExtraFilters, useTags, type ExtraFilters } from './components/shell/FilterBar'
 import { useSmartAlbums, sameAlbumState, splitAlbumFilters } from './lib/smartAlbums'
 import type { Tag } from '../../shared/tags'
@@ -482,6 +483,22 @@ function App(): JSX.Element {
     return () => { unsubResult(); unsubSearch() }
   }, [handleSearch])
 
+  // 网页版的网页链接（/open?hash=…&video=…&t=…，见 shared/deeplink.ts）：定位到那一项打开详情，
+  // 然后把地址栏还原成 /（刷新不会再跳一次）。桌面版走 vixel:// 深链接，由主进程处理
+  useEffect(() => {
+    if (!IS_WEB || location.pathname !== '/open') return
+    const target = parseLinkParams(new URLSearchParams(location.search))
+    window.history.replaceState(null, '', '/')
+    if (!target) return
+    const missing = (): void => showCollectToast(`${t.main.deepLinkMissingTitle}${t.common.sep}${t.main.deepLinkMissingDetail}`)
+    window.api.resolveLink(target).then((r) => {
+      if (!r) return missing()
+      setQuickLookId(null)
+      setSelected(r)
+    }).catch(missing)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在打开页面时处理一次
+  }, [])
+
   // 搜索历史：查询停稳 1.5 秒且有结果才记为"最近"，边打字边出的中间结果不算；以图搜图不记
   const history = useSearchHistory()
   const { addRecent, removeRecent } = history
@@ -863,6 +880,19 @@ function App(): JSX.Element {
     try { await navigator.clipboard.writeText(lines.join('\n')) } catch (e) { console.error('Copy failed:', e) }
   }, [])
 
+  // 网页链接（http://…/open?…）：本地接口 / 网页版才有；Markdown 形态带按 hash 取的缩略图，笔记里直接显示预览
+  const webBase = useWebLinkBase()
+  const copyWebLinks = useCallback(async (items: SearchResult[], markdown: boolean) => {
+    if (!webBase) return
+    const lines = items.map((r) => {
+      const url = httpLinkForItem(webBase, r.photo, r.segment?.startMs)
+      return markdown && r.photo.fileHash
+        ? markdownThumbLinkForItem(r.photo.fileName, url, thumbUrlForHash(webBase, r.photo.fileHash), r.segment?.startMs)
+        : url
+    })
+    try { await copyText(lines.join('\n')) } catch (e) { console.error('Copy failed:', e) }
+  }, [webBase])
+
   // 以此图搜索：直接用库里已存的向量（不再过模型），连视频片段一起搜；芯片缩略图用现成的 vixel://thumb
   const searchWithItem = useCallback((r: SearchResult) => {
     startImageQuery({ fileHash: r.photo.fileHash }, r.photo.fileName, thumbUrl(r.photo))
@@ -896,11 +926,13 @@ function App(): JSX.Element {
       case 'copy-path': copyPaths(items); break
       case 'copy-link': copyDeepLinks(items, false); break
       case 'copy-md-link': copyDeepLinks(items, true); break
+      case 'copy-web-link': copyWebLinks(items, false); break
+      case 'copy-web-md': copyWebLinks(items, true); break
       case 'search-by-image': searchWithItem(first); break
       case 'open-external': if (first.photo.videoId != null) window.api.openSourceVideo(first.photo.videoId); break
       case 'toggle-favorite': toggleFavorite(items); break
     }
-  }, [revealItems, copyPaths, copyDeepLinks, searchWithItem, toggleFavorite])
+  }, [revealItems, copyPaths, copyDeepLinks, copyWebLinks, searchWithItem, toggleFavorite])
 
   const handleItemContextMenu = useCallback(async (index: number, e: React.MouseEvent) => {
     e.preventDefault()
@@ -919,9 +951,9 @@ function App(): JSX.Element {
     const isMedia = items.length === 1 && mediaKindOf(r.photo) !== 'image' && r.photo.videoId != null
     // 音频的代表图是封面 / 波形，没有图片向量，不给"以此图搜索"
     const canImageSearch = items.length === 1 && mediaKindOf(r.photo) !== 'audio'
-    const action = await window.api.showItemMenu({ count: items.length, isMedia, favorite: items.every((x) => x.photo.favorite), canImageSearch })
+    const action = await window.api.showItemMenu({ count: items.length, isMedia, favorite: items.every((x) => x.photo.favorite), canImageSearch, webLinks: !!webBase })
     if (action) runItemAction(action, items)
-  }, [selectOnly, runItemAction])
+  }, [selectOnly, runItemAction, webBase])
 
   // 当前"主项"：焦点项，否则第一个选中项
   const primary = useMemo(() => {

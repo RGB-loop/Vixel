@@ -38,6 +38,8 @@ const zh = {
   copyPaths: (n: number) => `拷贝 ${n} 个路径`,
   copyLink: '拷贝链接',
   copyMarkdownLink: '拷贝 Markdown 链接',
+  copyWebLink: '拷贝网页链接',
+  copyWebMarkdown: '拷贝 Markdown（带缩略图）',
   openInPlayer: '在系统播放器中打开',
 }
 
@@ -79,6 +81,8 @@ const en: typeof zh = {
   copyPaths: (n) => `Copy ${n} Paths`,
   copyLink: 'Copy Link',
   copyMarkdownLink: 'Copy Markdown Link',
+  copyWebLink: 'Copy Web Link',
+  copyWebMarkdown: 'Copy Markdown with Thumbnail',
   openInPlayer: 'Open in System Player',
 }
 

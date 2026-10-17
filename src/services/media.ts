@@ -17,6 +17,8 @@ import type { FaceBbox } from '../shared/types'
 export interface MediaResolvers {
   /** vixel://thumb/<photoId> → <dataDir>/thumbnails/<hash>.webp；没生成好时 null（调用方 404，卡片会重试） */
   thumbPath(photoId: number): string | null
+  /** 按内容哈希取缩略图（网页链接 / Markdown 内嵌预览用，活过重建索引）；不在库里或没生成时 null */
+  thumbPathByHash(hash: string): string | null
   /** vixel://image/<photoId> → 原图路径 */
   imagePath(photoId: number): string | null
   /** vixel://media/<videoId> → 音视频源文件路径（调用方负责 Range） */
@@ -61,6 +63,12 @@ export function createMediaResolvers(db: DatabaseInstance, indexer: Indexer, dat
       const photo = db.getPhoto(photoId)
       if (!photo?.fileHash) return null
       const thumbPath = indexer.getThumbnailPath(photo.fileHash)
+      return existsSync(thumbPath) ? thumbPath : null
+    },
+
+    thumbPathByHash(hash) {
+      if (!/^[0-9a-f]{8,64}$/i.test(hash) || !db.getRepresentativeByHash(hash.toLowerCase())) return null
+      const thumbPath = indexer.getThumbnailPath(hash.toLowerCase())
       return existsSync(thumbPath) ? thumbPath : null
     },
 

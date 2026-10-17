@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { buildDeepLink, deepLinkForItem, formatLinkTime, markdownLinkForItem, parseDeepLink } from './deeplink'
+import {
+  buildDeepLink, deepLinkForItem, formatLinkTime, markdownLinkForItem, parseDeepLink,
+  buildHttpLink, httpLinkForItem, parseLinkParams, thumbUrlForHash, markdownThumbLinkForItem,
+} from './deeplink'
 
 describe('buildDeepLink / parseDeepLink', () => {
   it('round-trips a photo link (hash + id)', () => {
@@ -63,5 +66,27 @@ describe('markdown link', () => {
       .toBe('[beach.mp4 @ 0:42](vixel://open?video=1&t=42)')
     expect(markdownLinkForItem('a[b].jpg', 'vixel://open?id=1'))
       .toBe('[a\\[b\\].jpg](vixel://open?id=1)')
+  })
+})
+
+describe('web links (/open?…)', () => {
+  const base = 'http://192.168.1.15:41721/'
+  it('builds the same params as the deep link, on an http base (trailing slash tolerated)', () => {
+    expect(buildHttpLink(base, { hash: 'deadbeef00112233', videoId: 7, timeMs: 32_000 }))
+      .toBe('http://192.168.1.15:41721/open?hash=deadbeef00112233&video=7&t=32')
+    expect(httpLinkForItem('http://nas:8080', { id: 5, fileHash: 'aa11bb22cc33dd44', videoId: null }))
+      .toBe('http://nas:8080/open?hash=aa11bb22cc33dd44&id=5')
+  })
+  it('round-trips through parseLinkParams (what the web UI does with location.search)', () => {
+    const url = new URL(buildHttpLink(base, { hash: 'deadbeef00112233', videoId: 7, timeMs: 32_000 }))
+    expect(parseLinkParams(url.searchParams)).toEqual({ hash: 'deadbeef00112233', videoId: 7, timeMs: 32_000 })
+    expect(parseLinkParams(new URLSearchParams('t=5'))).toBeNull()
+    expect(parseLinkParams(new URLSearchParams('hash=not-hex'))).toBeNull()
+  })
+  it('thumbnail by hash and the Markdown embed', () => {
+    const thumb = thumbUrlForHash(base, 'aa11bb22cc33dd44')
+    expect(thumb).toBe('http://192.168.1.15:41721/media/thumbh/aa11bb22cc33dd44')
+    expect(markdownThumbLinkForItem('a [b].mp4', 'http://x/open?hash=1', thumb, 42_000))
+      .toBe('[![a \\[b\\].mp4 @ 0:42](http://192.168.1.15:41721/media/thumbh/aa11bb22cc33dd44)](http://x/open?hash=1)')
   })
 })
