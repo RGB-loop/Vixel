@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-18
+
 ### Added
 - **Deep links for your notes (`vixel://open?…`).** Right-click any item (or use the
   inspector) → Copy Link / Copy Markdown Link, paste into Obsidian / Notes / anywhere;
@@ -35,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the demo libraries. If the speech model for your language is not downloaded yet, Vixel
   points you to System Settings → Keyboard → Dictation instead of downloading anything itself.
   Windows is not covered yet (no offline engine met the quality bar).
+
+### Fixed
+- **Text in images: long lines lost most of their characters** (#3). Each recognized line
+  was squeezed into a 320 px wide input, so a 30–40 character line (screenshots, articles)
+  came back with large gaps. Lines now get a width that matches their aspect ratio, as in
+  PaddleOCR itself; the reporter's screenshot now reads line for line like their local
+  PaddleOCR. Existing libraries re-run OCR automatically after updating.
+- The player's segment strip said "片段 2" for a two-segment video, which read like
+  "segment #2"; it now says "2 个片段".
 
 ### Decided against (for now)
 - **Search by a sound clip.** Measured on the demo footage: audio queries against the joint

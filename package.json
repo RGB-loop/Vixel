@@ -1,6 +1,6 @@
 {
   "name": "vixel",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Private, offline AI search for your photos, videos and audio",
   "main": "./out/main/index.js",
   "author": "Vixel Team",
