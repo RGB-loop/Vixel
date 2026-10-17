@@ -10,6 +10,7 @@ import { initDatabase, type DatabaseInstance } from '../core/db'
 import { SearchEngine } from '../core/search'
 import { initEmbeddingServicePath, getEmbeddingService } from '../core/embedding'
 import { cmdDoctor, cmdBench } from './doctor'
+import { cmdMcp } from './mcp'
 import { litertPlatformDir } from '../core/embedding/providers/litert/native'
 
 // 跨平台 userData 路径。打包版目录名取 productName（Vixel），开发版取 package.json name（vixel）；
@@ -366,6 +367,7 @@ Usage:
   vixel folders                List watched folders
   vixel doctor                 Health check: counts, queue errors, query plans
   vixel bench                  Time hot queries and searches on this library
+  vixel mcp                    MCP server on stdio for AI clients (read-only; see README)
 
 Flags:
   --json                       JSON output (for scripts/agents)
@@ -387,6 +389,11 @@ Environment:
 
   const { command, positional, flags } = parseArgs(args)
 
+  // MCP：stdout 是 JSON-RPC 协议通道，任何日志（迁移提示、模型加载）都改走 stderr
+  if (command === 'mcp') {
+    console.log = (...a: unknown[]) => console.error(...a)
+  }
+
   // 检查数据库
   const dbPath = getDbPath()
   if (!existsSync(dbPath)) {
@@ -398,7 +405,7 @@ Environment:
   // 初始化。只有改 caption 需要写库；其余只读打开，不跑迁移，应用开着也安全
   const modelsDir = getModelsDir()
   initEmbeddingServicePath(getUserDataPath(), modelsDir, getLiteRtDir())
-  if (!modelsDir && (command === 'search' || command === 'similar' || command === 'bench')) {
+  if (!modelsDir && (command === 'search' || command === 'similar' || command === 'bench' || command === 'mcp')) {
     console.error('Note: models not found — semantic search disabled (set VIXEL_MODELS_DIR). Text and filename matching still work.')
   }
   const writes = command === 'caption' && flags.set !== undefined
@@ -439,6 +446,9 @@ Environment:
         break
       case 'bench':
         await cmdBench(db, flags)
+        break
+      case 'mcp':
+        await cmdMcp(db)
         break
       default:
         console.error(`Unknown command: ${command}`)

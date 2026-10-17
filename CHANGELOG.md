@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Deep links for your notes (`vixel://open?…`).** Right-click any item (or use the
+  inspector) → Copy Link / Copy Markdown Link, paste into Obsidian / Notes / anywhere;
+  clicking the link opens Vixel at that item, and video/audio jumps to the timestamp
+  (`[clip.mp4 @ 0:42](vixel://…)`). Links are addressed by content hash, so they keep
+  working after re-indexing or moving files. The `vixel` scheme is registered with the
+  OS (macOS `open-url` incl. cold start; Windows/Linux single-instance argv hand-off).
+- **Local API (Settings → General, off by default).** Runs the server edition's HTTP
+  stack inside the desktop app against the same library: web UI + JSON API on
+  `127.0.0.1:41721` (port configurable), optional LAN access (binds 0.0.0.0, password
+  required — browse your desktop library from a phone), and a read-only MCP endpoint
+  at `/mcp` (Streamable HTTP, bearer token with copy/regenerate in Settings).
+- **MCP for AI clients.** Read-only tools `search_media` / `get_media` / `find_similar`
+  (results carry scores, matched video time ranges, `vixel://` deep links and http media
+  links). Available three ways: desktop Local API `/mcp`, server edition `/mcp`
+  (enable with `VIXEL_MCP_TOKEN`), and `vixel mcp` on stdio for Claude Desktop /
+  Cursor / Claude Code without any network service (setup snippet in the README).
+
 ## [0.5.1] - 2026-10-15
 
 ### Fixed
