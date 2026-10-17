@@ -105,6 +105,16 @@ function sessionCookie(state: AppState, req: IncomingMessage, token: string): st
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`
 }
 
+/**
+ * 免口令模式（桌面"本地接口"只绑 127.0.0.1）只接受 Host 为回环地址的请求：防 DNS rebinding ——
+ * 恶意网页把自己的域名解析到 127.0.0.1 后，Origin / Host 都是它自己的域名，同源请求能带上 X-Vixel，
+ * 不校验 Host 就能读走整个库。有口令时（局域网 / Docker）由会话认证兜底，不做这层限制
+ */
+export function loopbackHost(host: string | string[] | undefined): boolean {
+  const h = Array.isArray(host) ? host[0] : host
+  return !!h && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(h)
+}
+
 function isAuthed(state: AppState, req: IncomingMessage): boolean {
   if (!state.requireAuth) return true
   return state.sessions.verify(parseCookies(req.headers.cookie)[SESSION_COOKIE])
@@ -183,6 +193,11 @@ async function handleRequest(state: AppState, req: IncomingMessage, res: ServerR
   // Docker healthcheck：不鉴权，也不暴露任何信息
   if (req.method === 'GET' && pathname === '/healthz') {
     sendJson(res, 200, { ok: true })
+    return
+  }
+
+  if (!state.requireAuth && !loopbackHost(req.headers.host)) {
+    sendJson(res, 403, { ok: false, error: 'Host not allowed' })
     return
   }
 
@@ -289,7 +304,13 @@ export function createServerApp(options: ServerAppOptions): VixelServerApp {
         else res.destroy()
       })
     },
-    handleUpgrade: (req, socket, head) => hub.handleUpgrade(req, socket, head),
+    handleUpgrade: (req, socket, head) => {
+      if (!state.requireAuth && !loopbackHost(req.headers.host)) {
+        socket.destroy()
+        return
+      }
+      hub.handleUpgrade(req, socket, head)
+    },
     close() {
       unsubscribe()
       hub.close()
