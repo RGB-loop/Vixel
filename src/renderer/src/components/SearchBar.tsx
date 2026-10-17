@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { t } from '../../../shared/i18n'
+import { useVoiceCapture } from '../lib/voiceCapture'
 
 interface SearchBarProps {
   /** 当前生效的查询；外部（侧边栏最近 / 已保存）改它时输入框跟着变 */
@@ -23,6 +24,15 @@ export function SearchBar({ value, onSearch, isSearching, resultCount, saved, sa
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<NodeJS.Timeout>()
+
+  // 语音输入（macOS 桌面版；其它平台 status.available 为 false，不渲染麦克风）：
+  // 语音 → 文字进搜索框（可编辑），随即跑一次正常文字搜索
+  const voice = useVoiceCapture((text) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setQuery(text)
+    onSearch(text)
+    inputRef.current?.focus()
+  })
 
   const debouncedSearch = useCallback(
     (value: string) => {
@@ -85,6 +95,14 @@ export function SearchBar({ value, onSearch, isSearching, resultCount, saved, sa
     }
   }, [])
 
+  // 语音提示自动消失（点击提示本身立即关）
+  const { notice: voiceNotice, clearNotice: clearVoiceNotice } = voice
+  useEffect(() => {
+    if (!voiceNotice) return
+    const timer = setTimeout(clearVoiceNotice, 10_000)
+    return () => clearTimeout(timer)
+  }, [voiceNotice, clearVoiceNotice])
+
   // 搜索结果计数提示（以图搜图时没有文字也显示）
   const showResultHint = (query.trim() || image) && !isSearching && resultCount !== undefined
 
@@ -144,6 +162,45 @@ export function SearchBar({ value, onSearch, isSearching, resultCount, saved, sa
       />
 
       <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
+        {/* 语音输入：仅在平台支持时出现（见 useVoiceCapture）；模型未下载时保留按钮、点击给指引 */}
+        {voice.status && (voice.status.available || voice.status.reason === 'asset') && (
+          <>
+            {voice.state === 'recording' && (
+              <span className="flex items-center gap-1.5" title={t.voice.listening}>
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                {/* 电平表：RMS 放大后限 0–1（语音一般只到 0.2 左右） */}
+                <span className="w-8 h-[3px] rounded-full bg-fill overflow-hidden">
+                  <span className="block h-full bg-accent transition-[width] duration-75" style={{ width: `${Math.min(1, voice.level * 5) * 100}%` }} />
+                </span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={voice.toggle}
+              disabled={voice.state === 'transcribing'}
+              title={voice.state === 'recording' ? t.voice.stopTitle : voice.state === 'transcribing' ? t.voice.transcribing : t.voice.micTitle}
+              aria-pressed={voice.state === 'recording'}
+              data-voice-mic
+              className={`p-1 rounded transition-colors ${
+                voice.state === 'recording' ? 'text-red-500 bg-fill-hover'
+                : voice.state === 'transcribing' ? 'text-accent'
+                : 'text-ink-4 hover:text-ink-2 hover:bg-fill-hover'
+              }`}
+            >
+              {voice.state === 'transcribing' ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <rect x="9.25" y="3" width="5.5" height="11" rx="2.75" />
+                  <path strokeLinecap="round" d="M6 11.5a6 6 0 0012 0M12 17.5V21" />
+                </svg>
+              )}
+            </button>
+          </>
+        )}
         {/* 上传查询图（网页版的以图搜图入口；桌面用拖入 / 粘贴 / 右键） */}
         {onPickImage && !image && (
           <label
@@ -200,6 +257,17 @@ export function SearchBar({ value, onSearch, isSearching, resultCount, saved, sa
           </button>
         )}
       </div>
+
+      {/* 语音输入的错误 / 指引（权限、模型未下载等）：点击关闭，10s 自动消失（见上面的 useEffect） */}
+      {voice.notice && (
+        <div
+          role="status"
+          onClick={voice.clearNotice}
+          className="absolute top-full right-0 mt-1.5 z-40 max-w-[360px] px-2.5 py-1.5 rounded-md bg-raised border border-line shadow-lg text-caption text-ink-2 cursor-pointer"
+        >
+          {voice.notice}
+        </div>
+      )}
     </form>
   )
 }

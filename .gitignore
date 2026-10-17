@@ -44,6 +44,9 @@ coverage/
 # LiteRT-LM 原生库（scripts/download-models.mjs litert-runtime 下载）
 resources/litert
 
+# 语音转写辅助程序（scripts/build-speech-helper.mjs 编译产物，源码在 src/native/mac）
+resources/speech
+
 # Native modules cache
 .node-gyp/
 

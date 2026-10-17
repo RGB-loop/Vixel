@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { IPC_CHANNELS, type MediaFilters, type SmartAlbum, type SmartAlbumMenuAction, type SearchResult, type WatchedFolder, type PhotoDetail, type PhotoLocation, type IndexProgress, type ModelStatus, type EmbeddingConfig, type Person, type FaceRecord, type BackupStatus, type MediaKind, type TaskOverview, type MediaDetail, type LibraryCounts, type MenuCommand, type ItemMenuAction, type ThemeMode, type PersonSuggestion, type PersonFace, type ImageQueryInput, type ImageSearchResponse, type SkippedFolder } from '../shared/types'
+import { IPC_CHANNELS, type MediaFilters, type SmartAlbum, type SmartAlbumMenuAction, type SearchResult, type WatchedFolder, type PhotoDetail, type PhotoLocation, type IndexProgress, type ModelStatus, type EmbeddingConfig, type Person, type FaceRecord, type BackupStatus, type MediaKind, type TaskOverview, type MediaDetail, type LibraryCounts, type MenuCommand, type ItemMenuAction, type ThemeMode, type PersonSuggestion, type PersonFace, type ImageQueryInput, type ImageSearchResponse, type SkippedFolder, type VoiceStatus, type VoiceTranscribeResult } from '../shared/types'
 import type { Locale, LocaleSetting } from '../shared/i18n'
 import { CLEANUP_CHANNELS, type DupScanResult, type DupScanProgress, type HiddenItem, type TrashResult } from '../shared/cleanup'
 import { COLLECT_CHANNELS, type CollectResult, type CollectServerStatus, type InboxInfo, type ItemSource } from '../shared/collect'
@@ -26,6 +26,15 @@ const api = {
   /** 拖入的 File 对应的本地路径；浏览器拖来的没有路径时返回空串（改传字节） */
   getPathForFile: (file: File): string => {
     try { return webUtils.getPathForFile(file) } catch { return '' }
+  },
+
+  // 语音搜索输入（macOS 系统级离线听写；其它平台 status.available 恒为 false，界面隐藏麦克风）
+  voice: {
+    status: (): Promise<VoiceStatus> => ipcRenderer.invoke(IPC_CHANNELS.VOICE_STATUS),
+    /** 第一次录音前请求系统麦克风权限（弹一次系统窗；被拒过返回 false） */
+    requestMic: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.VOICE_REQUEST_MIC),
+    /** wav：渲染进程录好的 16 kHz mono 16-bit WAV 字节；录音只在本机转写，用完即删 */
+    transcribe: (wav: Uint8Array): Promise<VoiceTranscribeResult> => ipcRenderer.invoke(IPC_CHANNELS.VOICE_TRANSCRIBE, wav),
   },
   getPhotosWithGPS: (): Promise<import('../shared/types').Photo[]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_PHOTOS_WITH_GPS)

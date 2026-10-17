@@ -192,6 +192,23 @@ export interface ImageSearchResponse {
   error?: 'decode-failed' | 'model-not-ready'
 }
 
+/**
+ * 语音输入（搜索框麦克风，macOS 桌面版）：能否离线转写。说"不可用"的原因：
+ *   platform = 不是 macOS 26+（系统离线听写 API 不存在）
+ *   helper   = 转写辅助程序缺失（打包 / 构建问题）
+ *   asset    = 这个语言的系统语音模型还没下载（系统设置 → 键盘 → 听写）
+ */
+export interface VoiceStatus {
+  available: boolean
+  reason?: 'platform' | 'helper' | 'asset'
+}
+
+export interface VoiceTranscribeResult {
+  text?: string
+  /** asset-missing 单列：界面要给"去系统设置下载语音模型"的指引，而不是笼统的失败 */
+  error?: 'unavailable' | 'asset-missing' | 'failed'
+}
+
 export interface CurrentTask {
   taskType: TaskType
   kind: MediaKind
@@ -372,6 +389,11 @@ export const IPC_CHANNELS = {
 
   // 以图搜图（拖入 / 粘贴 / 右键"以此图搜索"）
   SEARCH_BY_IMAGE: 'search-by-image',
+
+  // 语音输入（macOS：系统级离线听写，见 src/main/voice.ts）
+  VOICE_STATUS: 'voice-status',
+  VOICE_REQUEST_MIC: 'voice-request-mic',
+  VOICE_TRANSCRIBE: 'voice-transcribe',
 
   // 地图
   GET_PHOTOS_WITH_GPS: 'get-photos-with-gps',

@@ -14,11 +14,11 @@
   },
   "homepage": "https://github.com/RGB-loop/Vixel#readme",
   "scripts": {
-    "predev": "node scripts/dev-bundle.mjs",
+    "predev": "node scripts/dev-bundle.mjs && node scripts/build-speech-helper.mjs",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "prepackage": "npm run build:web",
+    "prepackage": "npm run build:web && node scripts/build-speech-helper.mjs",
     "package": "electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",

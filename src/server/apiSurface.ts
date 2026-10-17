@@ -84,6 +84,9 @@ export const IMPLEMENTED_METHODS = [
  */
 export const DESKTOP_ONLY_METHODS = [
   'getPathForFile',          // webUtils.getPathForFile（渲染进程里的本地 File 对象）
+  'voice.status',            // 语音搜索输入：macOS 系统级离线听写（服务器 / 网页没有离线引擎，见 src/main/voice.ts）
+  'voice.requestMic',
+  'voice.transcribe',
   'selectFolder',            // 原生目录选择对话框
   'openSettings',            // 设置是独立窗口；网页版是路由
   'showItemMenu',            // 原生右键菜单

@@ -24,6 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   links). Available three ways: desktop Local API `/mcp`, server edition `/mcp`
   (enable with `VIXEL_MCP_TOKEN`), and `vixel mcp` on stdio for Claude Desktop /
   Cursor / Claude Code without any network service (setup snippet in the README).
+- **Voice input in the search bar (macOS 26+).** Click the microphone (or press it again to
+  stop), speak a query, and it is transcribed on-device into the search box — editable like
+  any typed text — then the normal text search runs. Transcription uses the system's offline
+  dictation model (SpeechAnalyzer) via a tiny helper process: nothing is recorded to disk
+  beyond a temp file that is deleted right away, and no audio ever leaves the Mac (the
+  browser Web Speech API, which uploads audio, is deliberately not used — so the web edition
+  has no microphone). Measured on 20 synthetic short queries: Chinese CER 6.4% (errors are
+  homophones), English WER 0%; voice and typed search agree on the top result 36/40 times
+  on the demo libraries. If the speech model for your language is not downloaded yet, Vixel
+  points you to System Settings → Keyboard → Dictation instead of downloading anything itself.
+  Windows is not covered yet (no offline engine met the quality bar).
+
+### Decided against (for now)
+- **Search by a sound clip.** Measured on the demo footage: audio queries against the joint
+  frames+audio segment vectors rank the right video first only 3/12 times (the picture
+  dominates the vector), and even pure audio-to-audio vectors cannot be thresholded — an
+  unrelated pink-noise clip scores higher than many true matches (0.947 vs 0.917). Without a
+  reliable "nothing really matches" gate the feature would return confidently wrong results,
+  so it stays out; the calibration script (`scripts/audio-search-eval.cjs`) documents the
+  numbers for re-evaluation with future models.
 
 ## [0.5.1] - 2026-10-15
 
