@@ -53,6 +53,8 @@ export interface QuickPanelController {
   getWindow(): BrowserWindow | null
   settings(): QuickPanelSettings
   isEnabled(): boolean
+  /** 在主窗口打开一条结果（窗口不存在时创建、加载完前暂存）；深链接（main/deeplink.ts）复用这条通道 */
+  openResult(result: unknown): void
   /** Windows：主窗口关闭后是否应留在后台（启用了快捷键）；留下时建托盘 */
   keepAliveOnWindows(): boolean
   ensureTray(): void
@@ -373,6 +375,7 @@ export function initQuickPanel(deps: QuickPanelDeps): QuickPanelController {
     getWindow: () => (panel && !panel.isDestroyed() ? panel : null),
     settings,
     isEnabled: enabled,
+    openResult: (result) => deliverToMain({ type: 'result', result }),
     keepAliveOnWindows: () => process.platform !== 'darwin' && enabled(),
     ensureTray,
     hasTray: () => tray != null,

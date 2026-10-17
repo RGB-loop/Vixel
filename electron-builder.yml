@@ -24,6 +24,12 @@ files:
   - '!node_modules/onnxruntime-node/bin/napi-v*/!(${platform})/**'
 asar: true
 afterPack: build/adhoc-sign.cjs
+# 深链接（vixel://open?…，见 src/shared/deeplink.ts）：注册成系统级 URL scheme，
+# 笔记里的链接能直接拉起 / 聚焦 Vixel（macOS 写进 Info.plist 的 CFBundleURLTypes，Windows 写注册表）
+protocols:
+  - name: Vixel Deep Link
+    schemes:
+      - vixel
 # asarIntegrity: 防止打包后 asar 被替换；Electron 启动时校验摘要
 asarUnpack:
   - resources/**

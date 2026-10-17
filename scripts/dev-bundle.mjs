@@ -54,6 +54,18 @@ try {
     changed = true
   }
 
+  // 深链接（vixel://open?…）开发期也要能用：macOS 的 URL scheme 必须声明在 Info.plist 里，
+  // setAsDefaultProtocolClient 才会生效。打包版由 electron-builder.yml 的 protocols 写入，与此无关。
+  if (read('CFBundleURLTypes:0:CFBundleURLSchemes:0') !== 'vixel') {
+    rewrite(plist, readFileSync(plist))
+    if (read('CFBundleURLTypes') === null) execFileSync(pb, ['-c', 'Add :CFBundleURLTypes array', plist])
+    execFileSync(pb, ['-c', 'Add :CFBundleURLTypes:0 dict', plist])
+    execFileSync(pb, ['-c', 'Add :CFBundleURLTypes:0:CFBundleURLName string Vixel Deep Link', plist])
+    execFileSync(pb, ['-c', 'Add :CFBundleURLTypes:0:CFBundleURLSchemes array', plist])
+    execFileSync(pb, ['-c', 'Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string vixel', plist])
+    changed = true
+  }
+
   if (existsSync(ourIcns)) {
     const want = readFileSync(ourIcns)
     if (!readFileSync(icns).equals(want)) {

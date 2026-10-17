@@ -30,9 +30,11 @@ import { registerAutoTags } from './autotags'
 import { registerPdfRenderer, disposePdfRenderer, releasePdfWindowIfLast, PDF_ASSET_SCHEME } from './pdfRender'
 import { timed, watchEventLoop, perfSnapshot, PROFILE } from '../core/perf'
 import { setInferenceTransport } from '../core/inference/transport'
+import { initDeepLinks, activateDeepLinks } from './deeplink'
+import type { DeepLinkTarget } from '../shared/deeplink'
 import { createServices, META_KEY_INDEX_ON_BATTERY, type VixelServices } from '../services/api'
 import { createServiceEvents } from '../services/events'
-import { IPC_CHANNELS, type MediaFilters, type ThemeMode, type IndexProgress, type EmbeddingConfig, type ImageQueryInput } from '../shared/types'
+import { IPC_CHANNELS, type MediaFilters, type ThemeMode, type IndexProgress, type EmbeddingConfig, type ImageQueryInput, type SearchResult } from '../shared/types'
 import { TAG_CHANNELS } from '../shared/tags'
 import { AUTOTAG_CHANNELS } from '../shared/autotags'
 import { CLEANUP_CHANNELS } from '../shared/cleanup'
@@ -50,6 +52,12 @@ if (process.env.VIXEL_RECORD) app.commandLine.appendSwitch('force-device-scale-f
   app.setPath('userData', userData)
 }
 app.setAboutPanelOptions({ applicationName: APP_NAME, applicationVersion: app.getVersion() })
+
+// 深链接（vixel://open?…）：open-url / 单实例锁必须在 app ready 之前就绪，冷启动的链接才接得住。
+// Windows / Linux 上拿不到锁说明已有实例在跑 —— 链接已经由 second-instance 转交，这个实例直接退出
+if (!initDeepLinks()) {
+  app.quit()
+}
 
 /** 截图标记回填完成的标记（老库一次性补 photos.is_screenshot） */
 const META_KEY_SCREENSHOT_BACKFILL = 'screenshot.backfill'
@@ -188,6 +196,27 @@ function ensureMainWindow(): BrowserWindow {
   win.show()
   win.focus()
   return win
+}
+
+/**
+ * 深链接 → 结果：hash（内容哈希，清库重建 / 移动文件后仍有效）优先，video / photo id 兜底。
+ * 时间点尽量落到包含它的已索引片段（详情页时间轴整段高亮），不在任何片段里就按原时间点 seek。
+ */
+function resolveDeepLinkTarget(target: DeepLinkTarget): SearchResult | null {
+  let photo = target.hash ? db.getRepresentativeByHash(target.hash) : undefined
+  if (!photo && target.videoId != null) {
+    const video = db.getVideoById(target.videoId)
+    if (video) photo = db.getRepresentativeByHash(video.fileHash)
+  }
+  if (!photo && target.photoId != null) photo = db.getPhoto(target.photoId)
+  if (!photo) return null
+  const result: SearchResult = { photo, score: 1 }
+  if (target.timeMs != null && photo.videoId != null) {
+    const ms = target.timeMs
+    const seg = db.getMediaDetail(photo.videoId)?.segments.find((s) => ms >= s.startMs && ms < s.endMs)
+    result.segment = seg ?? { startMs: ms, endMs: ms }
+  }
+  return result
 }
 
 /**
@@ -760,6 +789,12 @@ app.whenReady().then(async () => {
   })
   rebuildMenu()
   createWindow()
+  // 深链接：服务和窗口通道就绪，开始处理（启动期间收到的链接在 deeplink.ts 的队列里等到这一刻）
+  activateDeepLinks({
+    resolve: resolveDeepLinkTarget,
+    open: (r) => quickPanel!.openResult(r),
+    ensureMainWindow,
+  })
   startDebugControl()
 
   // 只剩设置窗口时点 Dock 图标也要把主窗口找回来
