@@ -36,6 +36,8 @@ const zh = {
   // 右键菜单
   revealMany: (reveal: string, n: number) => `${reveal} ${n} 项`,
   copyPaths: (n: number) => `拷贝 ${n} 个路径`,
+  copyLink: '拷贝链接',
+  copyMarkdownLink: '拷贝 Markdown 链接',
   openInPlayer: '在系统播放器中打开',
 }
 
@@ -75,6 +77,8 @@ const en: typeof zh = {
   homepage: 'Vixel Homepage',
   revealMany: (reveal, n) => `${reveal} (${n} Items)`,
   copyPaths: (n) => `Copy ${n} Paths`,
+  copyLink: 'Copy Link',
+  copyMarkdownLink: 'Copy Markdown Link',
   openInPlayer: 'Open in System Player',
 }
 

@@ -92,6 +92,8 @@ SCRFD 人脸检测 + MobileFaceNet 512 维特征 + sqlite-vec 近邻索引。
 - **HEIC / RAW** —— macOS 上通过系统 `sips` 解码 CR2 / CR3 / NEF / ARW / DNG / RAF / ORF / RW2，保留 EXIF。
 - **快速查看** —— 空格预览，⌘1–5 切换 全部 / 图片 / 视频 / 音频 / 地图。
 - **命令行** —— `vixel search "海边" --json`，方便脚本和 Agent 调用（见下文）；结果里的 `matchedBy` 说明是画面、图中文字还是文件名命中。
+- **链接进笔记** —— 右键「拷贝链接 / 拷贝 Markdown 链接」得到 `vixel://` 深链接，贴进 Obsidian、备忘录等任意笔记，点击回到 Vixel 定位到那一项（视频 / 音频直接跳到时间点）。链接按内容哈希定位，清库重建、移动文件后仍然有效。
+- **本地接口（默认关闭）** —— 设置 → 通用 → 本地接口：在本机开出网页界面和 HTTP API，手机浏览器也能访问桌面的资料库（局域网访问必须设口令）；同一服务的 `/mcp` 是给 AI 客户端的只读 MCP 接口（见下文）。
 - **中英文界面** —— 跟随系统语言，也可在 设置 → 通用 里切换。
 - **诊断** —— `vixel doctor` / `vixel bench` 体检和测速，`VIXEL_PROFILE=1` 打印慢操作，见 [docs/debugging.md](docs/debugging.md)。
 
@@ -252,8 +254,35 @@ npm run cli -- people
 npm run cli -- stats
 ```
 
-支持 `search` · `info` · `similar` · `people` · `stats` · `caption` · `folders`，
+支持 `search` · `info` · `similar` · `people` · `stats` · `caption` · `folders` · `mcp`，
 `--json` 输出便于脚本和 AI Agent 调用。需要先运行一次应用以创建照片库。
+
+### MCP（让 AI 客户端查你的库）
+
+`vixel mcp` 把同一套查询变成 **stdio 形态的 MCP 服务器**（工具全部只读：`search_media` /
+`get_media` / `find_similar`），Claude Desktop、Cursor、Claude Code 等本地 AI 客户端
+**不开任何网络服务**就能搜你的库；结果里的 `vixel://` 链接点开直接回到应用并定位（视频跳到时间点）。
+需要源码仓库（`npm install && npm run build:cli`；已安装的 Vixel.app 里的语义模型会被自动找到），
+客户端里这样配置（Claude Desktop 的 `claude_desktop_config.json`、Cursor 的 `mcp.json` 同形）：
+
+```json
+{
+  "mcpServers": {
+    "vixel": {
+      "command": "/绝对路径/Vixel/node_modules/.bin/electron",
+      "args": ["/绝对路径/Vixel/dist/cli/cli/index.js", "mcp"],
+      "env": { "ELECTRON_RUN_AS_NODE": "1" }
+    }
+  }
+}
+```
+
+> 为什么用 Electron 当运行时：仓库的 better-sqlite3 按 Electron 的 ABI 构建，普通 `node` 加载不了；
+> `ELECTRON_RUN_AS_NODE=1` 下 Electron 就是一个纯 Node，不会弹窗口。
+
+不想碰源码：桌面应用 设置 → 通用 → **本地接口** 打开后，同样的工具在 `http://127.0.0.1:41721/mcp`
+（Streamable HTTP + Bearer 令牌，设置页里拷贝）；服务器版设 `VIXEL_MCP_TOKEN` 同理，
+见 [docs/server/README.md](docs/server/README.md)。
 
 ## 开发
 

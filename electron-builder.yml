@@ -24,6 +24,12 @@ files:
   - '!node_modules/onnxruntime-node/bin/napi-v*/!(${platform})/**'
 asar: true
 afterPack: build/adhoc-sign.cjs
+# 深链接（vixel://open?…，见 src/shared/deeplink.ts）：注册成系统级 URL scheme，
+# 笔记里的链接能直接拉起 / 聚焦 Vixel（macOS 写进 Info.plist 的 CFBundleURLTypes，Windows 写注册表）
+protocols:
+  - name: Vixel Deep Link
+    schemes:
+      - vixel
 # asarIntegrity: 防止打包后 asar 被替换；Electron 启动时校验摘要
 asarUnpack:
   - resources/**
@@ -47,6 +53,9 @@ extraResources:
   # LiteRT-LM 原生库：只带目标平台那一份（npm run models:download 按平台解压到这里）
   - from: resources/litert/${platform}-${arch}
     to: litert
+  # 网页前端（本地接口的浏览器界面；prepackage 跑 npm run build:web 保证它存在）
+  - from: dist/web
+    to: web
 
 mac:
   icon: build/icon.icns

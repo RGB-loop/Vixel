@@ -142,6 +142,11 @@ export function popupItemMenu(
       ] as MenuItemConstructorOptions[]),
       { label: multi ? t.menu.revealMany(revealLabel(), count) : revealLabel(), accelerator: 'CmdOrCtrl+Shift+R', click: pick('reveal') },
       { label: multi ? t.menu.copyPaths(count) : t.common.copyPath, click: pick('copy-path') },
+      // 深链接（vixel://open?…，见 shared/deeplink.ts）：贴进笔记，点击回到 Vixel 定位这一项
+      ...(multi ? [] : [
+        { label: t.menu.copyLink, click: pick('copy-link') },
+        { label: t.menu.copyMarkdownLink, click: pick('copy-md-link') },
+      ] as MenuItemConstructorOptions[]),
       { label: favorite ? t.organize.unfavorite : t.organize.favorite, accelerator: 'F', registerAccelerator: false, click: pick('toggle-favorite') },
       ...(multi ? [] : [
         { type: 'separator' },

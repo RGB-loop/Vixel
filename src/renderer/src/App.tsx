@@ -20,6 +20,7 @@ import { thumbUrl } from './lib/mediaUrl'
 import { sourcePathOf } from './lib/resultActions'
 import { useSearchHistory, normalizeQuery } from './lib/searchHistory'
 import { t } from '../../shared/i18n'
+import { deepLinkForItem, markdownLinkForItem } from '../../shared/deeplink'
 import { FilterBar, hasExtraFilters, countExtraFilters, describeExtraFilters, useTags, type ExtraFilters } from './components/shell/FilterBar'
 import { useSmartAlbums, sameAlbumState, splitAlbumFilters } from './lib/smartAlbums'
 import type { Tag } from '../../shared/tags'
@@ -852,6 +853,16 @@ function App(): JSX.Element {
     try { await navigator.clipboard.writeText(paths.join('\n')) } catch (e) { console.error('Copy failed:', e) }
   }, [])
 
+  // 深链接（vixel://open?…，见 shared/deeplink.ts）：贴进笔记后点击回到 Vixel 定位；
+  // 命中片段的起点作为时间点，Markdown 形态是 [文件名 @ 0:42](vixel://…)
+  const copyDeepLinks = useCallback(async (items: SearchResult[], markdown: boolean) => {
+    const lines = items.map((r) => {
+      const url = deepLinkForItem(r.photo, r.segment?.startMs)
+      return markdown ? markdownLinkForItem(r.photo.fileName, url, r.segment?.startMs) : url
+    })
+    try { await navigator.clipboard.writeText(lines.join('\n')) } catch (e) { console.error('Copy failed:', e) }
+  }, [])
+
   // 以此图搜索：直接用库里已存的向量（不再过模型），连视频片段一起搜；芯片缩略图用现成的 vixel://thumb
   const searchWithItem = useCallback((r: SearchResult) => {
     startImageQuery({ fileHash: r.photo.fileHash }, r.photo.fileName, thumbUrl(r.photo))
@@ -883,11 +894,13 @@ function App(): JSX.Element {
       case 'quick-look': setQuickLookId(first.photo.id); break
       case 'reveal': revealItems(items); break
       case 'copy-path': copyPaths(items); break
+      case 'copy-link': copyDeepLinks(items, false); break
+      case 'copy-md-link': copyDeepLinks(items, true); break
       case 'search-by-image': searchWithItem(first); break
       case 'open-external': if (first.photo.videoId != null) window.api.openSourceVideo(first.photo.videoId); break
       case 'toggle-favorite': toggleFavorite(items); break
     }
-  }, [revealItems, copyPaths, searchWithItem, toggleFavorite])
+  }, [revealItems, copyPaths, copyDeepLinks, searchWithItem, toggleFavorite])
 
   const handleItemContextMenu = useCallback(async (index: number, e: React.MouseEvent) => {
     e.preventDefault()

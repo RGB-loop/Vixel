@@ -275,6 +275,13 @@ export async function createWebApi(): Promise<Api> {
       onCollected: noopEvent as (cb: (r: CollectResult) => void) => () => void,
     },
 
+    // 本地接口：桌面在设置里开的 HTTP/MCP 服务 —— 网页版本身就跑在这个服务上，没有可配置的
+    localApi: {
+      status: desktopOnly('localApi.status'),
+      set: desktopOnly('localApi.set'),
+      newToken: desktopOnly('localApi.newToken'),
+    },
+
     // 清理相似照片（trash 除外：原文件在服务器上建议只读挂载）
     cleanup: {
       scan: () => post<import('../shared/cleanup').DupScanResult>('cleanup.scan'),

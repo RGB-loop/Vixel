@@ -4,6 +4,7 @@ import type { ItemSource } from '../../../../shared/collect'
 import { formatDuration, formatFileSize, mediaKindOf } from '../../lib/format'
 import { downloadOriginal, imageUrl, mediaSrcUrl, thumbUrl } from '../../lib/mediaUrl'
 import { IS_WEB, revealLabel } from '../../lib/platform'
+import { deepLinkForItem, markdownLinkForItem } from '../../../../shared/deeplink'
 import { Icon } from '../shell/icons'
 import { TagEditor } from './TagEditor'
 import { designBadgeOf } from '../media/MediaCard'
@@ -83,6 +84,13 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
   const resolution = resolutionOverride ?? (media?.width && media.height ? { w: media.width, h: media.height } : null)
   const sourcePath = isMedia ? media?.filePath : photo.filePath
   const dup = photo.duplicateCount && photo.duplicateCount > 1 ? photo.duplicateCount : 0
+
+  // 深链接：hash 优先（重建索引后仍有效）；媒体带上命中片段的起点
+  const copyDeepLink = (markdown: boolean): void => {
+    const url = deepLinkForItem(photo, segment?.startMs)
+    const text = markdown ? markdownLinkForItem(media?.fileName ?? photo.fileName, url, segment?.startMs) : url
+    void navigator.clipboard.writeText(text).catch((e) => console.error('Copy failed:', e))
+  }
   // 音频代表图没有图片向量，embed_status 永远 pending，不能算"索引中"
   const indexState = kind === 'audio' || photo.embedStatus === 'done'
     ? { label: t.inspector.indexed, cls: 'text-ink-2' }
@@ -269,6 +277,9 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
                     {t.inspector.systemPlayer}
                   </ActionButton>
                 )}
+                {/* 深链接（vixel://open?…）：贴进笔记后点击回到 Vixel 定位；网页版隐藏（等价物是 http 链接） */}
+                <ActionButton icon="link" onClick={() => copyDeepLink(false)}>{t.menu.copyLink}</ActionButton>
+                <ActionButton icon="link" onClick={() => copyDeepLink(true)}>{t.menu.copyMarkdownLink}</ActionButton>
               </>
             )}
           </div>

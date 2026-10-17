@@ -6,6 +6,7 @@ import { COLLECT_CHANNELS, type CollectResult, type CollectServerStatus, type In
 import { TAG_CHANNELS, type Tag, type TagMenuAction, type TagsForSelection } from '../shared/tags'
 import { AUTOTAG_CHANNELS, type AutoTagStatus } from '../shared/autotags'
 import { QUICKPANEL_CHANNELS, type QuickPanelSettings } from '../shared/quickpanel'
+import { LOCALAPI_CHANNELS, type LocalApiPatch, type LocalApiStatus } from '../shared/localapi'
 
 /** 面板 ↩ / ⌘O 时主窗口还没加载完的暂存动作（App 挂载后拉取） */
 export type QuickPanelPendingAction = { type: 'result'; result: SearchResult } | { type: 'query'; query: string }
@@ -337,6 +338,14 @@ const api = {
       ipcRenderer.on(COLLECT_CHANNELS.COLLECTED, handler)
       return () => { ipcRenderer.removeListener(COLLECT_CHANNELS.COLLECTED, handler) }
     },
+  },
+
+  // 本地接口（HTTP API + 网页界面 + /mcp；设置 › 通用，桌面专属）
+  localApi: {
+    status: (): Promise<LocalApiStatus> => ipcRenderer.invoke(LOCALAPI_CHANNELS.STATUS),
+    set: (patch: LocalApiPatch): Promise<LocalApiStatus> => ipcRenderer.invoke(LOCALAPI_CHANNELS.SET, patch),
+    /** 重新生成 /mcp 的 bearer 令牌（旧令牌立即失效） */
+    newToken: (): Promise<LocalApiStatus> => ipcRenderer.invoke(LOCALAPI_CHANNELS.NEW_TOKEN),
   },
 
   // 清理相似照片（近重复）

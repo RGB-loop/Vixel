@@ -29,6 +29,8 @@ Local AI search for photos, videos and audio. Fully offline, no account, nothing
 - **Clean up similar photos.** Finds burst shots, re-exports and lightly edited copies, suggests which one to keep, and hides the rest in Vixel or moves them to the Trash after you confirm.
 - **Offline map, similar photos, de-duplication, HEIC / RAW, quick look, dark mode.**
 - **CLI for scripts and agents:** `vixel search "sunset at the beach" --json`.
+- **Links for your notes.** Right-click → Copy Link / Copy Markdown Link gives a `vixel://` deep link to paste into Obsidian, Notes or any editor; clicking it opens Vixel at that item (video/audio jumps to the timestamp). Links are addressed by content hash, so they survive re-indexing.
+- **Local API (off by default).** Settings → General → Local API serves a web UI and HTTP API for your desktop library — enable LAN access (password required) to browse it from your phone — plus a read-only MCP endpoint at `/mcp` for AI clients (see below).
 
 <img src="docs/media/video.jpg" width="860" alt="Video segment search" />
 
@@ -112,6 +114,33 @@ means full support (ARM: `grep -o asimddp /proc/cpuinfo`).
 
 Full deployment guide (compose, Synology walkthrough, permissions, reverse proxy / HTTPS,
 backup, limitations): [docs/server/README.md](docs/server/README.md).
+
+## MCP (let AI clients query your library)
+
+`vixel mcp` runs a **stdio MCP server** with read-only tools (`search_media` / `get_media` /
+`find_similar`), so Claude Desktop, Cursor or Claude Code can search your library **without
+any network service**. Results include `vixel://` deep links that open the item in the app
+(videos jump to the matched timestamp). It needs a source checkout (`npm install &&
+npm run build:cli`; models inside an installed Vixel.app are found automatically):
+
+```json
+{
+  "mcpServers": {
+    "vixel": {
+      "command": "/absolute/path/Vixel/node_modules/.bin/electron",
+      "args": ["/absolute/path/Vixel/dist/cli/cli/index.js", "mcp"],
+      "env": { "ELECTRON_RUN_AS_NODE": "1" }
+    }
+  }
+}
+```
+
+> Why Electron as the runtime: the repo's better-sqlite3 is compiled for Electron's ABI;
+> with `ELECTRON_RUN_AS_NODE=1` Electron behaves as plain Node and opens no window.
+
+No source checkout? The desktop app's Settings → General → **Local API** exposes the same
+tools over Streamable HTTP at `http://127.0.0.1:41721/mcp` (bearer token shown in Settings);
+the server edition enables it with `VIXEL_MCP_TOKEN` (see [docs/server/README.md](docs/server/README.md)).
 
 ## Build from source
 

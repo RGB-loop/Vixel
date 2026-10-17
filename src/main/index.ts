@@ -30,9 +30,13 @@ import { registerAutoTags } from './autotags'
 import { registerPdfRenderer, disposePdfRenderer, releasePdfWindowIfLast, PDF_ASSET_SCHEME } from './pdfRender'
 import { timed, watchEventLoop, perfSnapshot, PROFILE } from '../core/perf'
 import { setInferenceTransport } from '../core/inference/transport'
+import { initDeepLinks, activateDeepLinks } from './deeplink'
+import { LocalApiServer } from './localApi'
+import { LOCALAPI_CHANNELS, type LocalApiPatch } from '../shared/localapi'
+import type { DeepLinkTarget } from '../shared/deeplink'
 import { createServices, META_KEY_INDEX_ON_BATTERY, type VixelServices } from '../services/api'
 import { createServiceEvents } from '../services/events'
-import { IPC_CHANNELS, type MediaFilters, type ThemeMode, type IndexProgress, type EmbeddingConfig, type ImageQueryInput } from '../shared/types'
+import { IPC_CHANNELS, type MediaFilters, type ThemeMode, type IndexProgress, type EmbeddingConfig, type ImageQueryInput, type SearchResult } from '../shared/types'
 import { TAG_CHANNELS } from '../shared/tags'
 import { AUTOTAG_CHANNELS } from '../shared/autotags'
 import { CLEANUP_CHANNELS } from '../shared/cleanup'
@@ -51,6 +55,12 @@ if (process.env.VIXEL_RECORD) app.commandLine.appendSwitch('force-device-scale-f
 }
 app.setAboutPanelOptions({ applicationName: APP_NAME, applicationVersion: app.getVersion() })
 
+// 深链接（vixel://open?…）：open-url / 单实例锁必须在 app ready 之前就绪，冷启动的链接才接得住。
+// Windows / Linux 上拿不到锁说明已有实例在跑 —— 链接已经由 second-instance 转交，这个实例直接退出
+if (!initDeepLinks()) {
+  app.quit()
+}
+
 /** 截图标记回填完成的标记（老库一次性补 photos.is_screenshot） */
 const META_KEY_SCREENSHOT_BACKFILL = 'screenshot.backfill'
 /**
@@ -67,7 +77,9 @@ let watcher: FileWatcher
 let indexer: Indexer
 let searchEngine: SearchEngine
 let services: VixelServices
+let serviceEvents: ReturnType<typeof createServiceEvents>
 let inference: InferenceProcess | null = null
+let localApi: LocalApiServer | null = null
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let quickPanel: QuickPanelController | null = null
@@ -191,6 +203,29 @@ function ensureMainWindow(): BrowserWindow {
 }
 
 /**
+ * 深链接 → 结果：hash（内容哈希，清库重建 / 移动文件后仍有效）优先，video / photo id 兜底。
+ * 时间点尽量落到包含它的已索引片段（详情页时间轴整段高亮），不在任何片段里就按原时间点 seek。
+ */
+function resolveDeepLinkTarget(target: DeepLinkTarget): SearchResult | null {
+  let photo = target.hash ? db.getRepresentativeByHash(target.hash) : undefined
+  if (!photo && target.videoId != null) {
+    const video = db.getVideoById(target.videoId)
+    if (video) photo = db.getRepresentativeByHash(video.fileHash)
+  }
+  if (!photo && target.photoId != null) photo = db.getPhoto(target.photoId)
+  if (!photo) return null
+  const result: SearchResult = { photo, score: 1 }
+  if (target.timeMs != null && photo.videoId != null) {
+    const ms = target.timeMs
+    // 正好是某个已索引片段的起点（"拷贝链接"产出的就是）→ 用整段，详情页时间轴能整段高亮；
+    // 任意时间点 → 起点保持精确（播放器按 startMs seek），终点借所在片段的
+    const seg = db.getMediaDetail(photo.videoId)?.segments.find((s) => ms >= s.startMs && ms < s.endMs)
+    result.segment = seg && seg.startMs === ms ? seg : { startMs: ms, endMs: Math.max(ms, seg?.endMs ?? ms) }
+  }
+  return result
+}
+
+/**
  * Windows / Linux：最后一个"真窗口"（主窗口 / 设置）关掉后，若启用了快速搜索快捷键，
  * 留在后台并挂一个托盘图标（打开 Vixel / 快速搜索 / 退出），否则按老行为退出。
  * 常驻的隐藏面板窗口会让 window-all-closed 不再触发，所以在这里显式判断。
@@ -280,6 +315,7 @@ async function initServices(): Promise<void> {
 
   // 服务层事件总线 → 各窗口的 IPC 事件（频道与 renderer 的 window.api.on* 对应）
   const events = createServiceEvents()
+  serviceEvents = events
   events.on((channel, payload) => {
     switch (channel) {
       case 'library-changed': return broadcast(IPC_CHANNELS.LIBRARY_CHANGED)
@@ -568,6 +604,11 @@ function registerIpcHandlers(): void {
   // 备份：手动触发 + 状态查询
   handle(IPC_CHANNELS.TRIGGER_BACKUP, async () => api.triggerBackup())
   handle(IPC_CHANNELS.GET_BACKUP_STATUS, async () => api.getBackupStatus())
+
+  // 本地接口（设置 › 通用）：HTTP API + 网页界面 + /mcp（见 ./localApi.ts）
+  handle(LOCALAPI_CHANNELS.STATUS, async () => localApi!.status())
+  handle(LOCALAPI_CHANNELS.SET, async (_event, patch: LocalApiPatch) => localApi!.update(patch))
+  handle(LOCALAPI_CHANNELS.NEW_TOKEN, async () => localApi!.regenerateToken())
 }
 
 /**
@@ -719,6 +760,19 @@ app.whenReady().then(async () => {
   if (process.env.VIXEL_RECORD) await session.defaultSession.clearStorageData({ storages: ['localstorage'] })
   enforceOfflinePolicy()
   registerVixelProtocol()
+  // 本地接口（默认关闭）：开着时在主进程内跑服务器版同一套 HTTP 栈，复用上面这套 services。
+  // 只监听、不发起任何对外请求，渲染进程的离线白名单不受影响
+  const prodWebDir = join(process.resourcesPath, 'web')
+  localApi = new LocalApiServer({
+    db,
+    services,
+    events: serviceEvents,
+    searchEngine,
+    dataDir: app.getPath('userData'),
+    webDir: existsSync(prodWebDir) ? prodWebDir : join(process.cwd(), 'dist', 'web'),
+    version: app.getVersion(),
+  })
+  localApi.startIfEnabled()
   // PDF / AI 的 pdf.js 栅格化服务（隐藏窗口按需创建；Windows/Linux 主路径，macOS 兜底）
   registerPdfRenderer()
   registerIpcHandlers()
@@ -760,6 +814,12 @@ app.whenReady().then(async () => {
   })
   rebuildMenu()
   createWindow()
+  // 深链接：服务和窗口通道就绪，开始处理（启动期间收到的链接在 deeplink.ts 的队列里等到这一刻）
+  activateDeepLinks({
+    resolve: resolveDeepLinkTarget,
+    open: (r) => quickPanel!.openResult(r),
+    ensureMainWindow,
+  })
   startDebugControl()
 
   // 只剩设置窗口时点 Dock 图标也要把主窗口找回来
@@ -781,6 +841,8 @@ app.on('before-quit', () => {
   isQuitting = true
   // 全局快捷键 / 托盘 / 常驻面板窗口：退出前注销并销毁
   quickPanel?.dispose()
+  // 本地接口：先掐连接再关库（残余请求别打在已关闭的库上）
+  void localApi?.stop()
   // VIXEL_PROFILE=1：退出时打印本次会话最慢的操作（p50 / p95 / max）
   if (PROFILE) console.table(perfSnapshot().slice(0, 25).map((r) => ({ ...r, p50: +r.p50.toFixed(1), p95: +r.p95.toFixed(1), max: +r.max.toFixed(1) })))
   watcher?.stopAll()

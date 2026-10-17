@@ -116,6 +116,9 @@ export const DESKTOP_ONLY_METHODS = [
   'collect.newToken',
   'cleanup.trash',           // shell.trashItem + 原生确认框；服务器上原文件以 :ro 挂载
   'tags.showMenu',           // 原生右键菜单
+  'localApi.status',         // 本地接口（桌面在设置里开的那个 HTTP/MCP 服务）：服务器版本身就是这个服务
+  'localApi.set',
+  'localApi.newToken',
 ] as const
 
 /**

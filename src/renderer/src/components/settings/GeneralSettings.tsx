@@ -5,6 +5,7 @@ import { defaultShortcut, eventToAccelerator, formatShortcut, type QuickPanelSet
 import { IS_MAC, IS_WEB } from '../../lib/platform'
 import { AutoTagSettings } from './AutoTagSettings'
 import { CollectSettings } from './CollectSettings'
+import { LocalApiSettings } from './LocalApiSettings'
 
 /** 外观选项的迷你窗口示意：侧栏 + 内容区两块，颜色写死（预览的就是另一种外观） */
 const SWATCH = {
@@ -135,6 +136,9 @@ export function GeneralSettings(): JSX.Element {
       <AutoTagSettings />
 
       {!IS_WEB && <CollectSettings />}
+
+      {/* 本地接口（HTTP API + 网页界面 + MCP）：桌面专属 —— 网页版本身就跑在这个服务上 */}
+      {!IS_WEB && <LocalApiSettings />}
 
       {IS_WEB && <WebAccessSettings />}
     </div>
