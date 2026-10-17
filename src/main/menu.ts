@@ -129,7 +129,7 @@ export function installAppMenu(
 /** 网格项右键菜单：动作由渲染进程执行（它知道选中了哪些项），这里只负责弹出并回传选择 */
 export function popupItemMenu(
   win: BrowserWindow,
-  { count, isMedia, favorite, canImageSearch }: { count: number; isMedia: boolean; favorite: boolean; canImageSearch: boolean }
+  { count, isMedia, favorite, canImageSearch, webLinks }: { count: number; isMedia: boolean; favorite: boolean; canImageSearch: boolean; webLinks?: boolean }
 ): Promise<ItemMenuAction | null> {
   return new Promise((resolve) => {
     const pick = (action: ItemMenuAction) => (): void => resolve(action)
@@ -146,6 +146,11 @@ export function popupItemMenu(
       ...(multi ? [] : [
         { label: t.menu.copyLink, click: pick('copy-link') },
         { label: t.menu.copyMarkdownLink, click: pick('copy-md-link') },
+        // 网页链接（http://…/open?…）：本地接口开着时才有 —— 手机、网页笔记等装不了 Vixel 的地方也能点开
+        ...(webLinks ? [
+          { label: t.menu.copyWebLink, click: pick('copy-web-link') },
+          { label: t.menu.copyWebMarkdown, click: pick('copy-web-md') },
+        ] : []),
       ] as MenuItemConstructorOptions[]),
       { label: favorite ? t.organize.unfavorite : t.organize.favorite, accelerator: 'F', registerAccelerator: false, click: pick('toggle-favorite') },
       ...(multi ? [] : [

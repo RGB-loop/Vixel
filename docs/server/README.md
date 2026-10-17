@@ -125,7 +125,7 @@ volumes:
 
 设置 `VIXEL_MCP_TOKEN` 后，服务器在 `/mcp` 提供一个 [MCP](https://modelcontextprotocol.io)
 端点（Streamable HTTP），AI 客户端 / Agent 可以用自然语言查询媒体库。工具**全部只读**：
-`search_media`（语义 + 图内文字 + 文件名搜索，命中视频时间段，带 vixel:// 深链接和 http 媒体链接）、
+`search_media`（语义 + 图内文字 + 文件名搜索，命中视频时间段，带 vixel:// 深链接、网页查看链接 httpUrl（/open?…，按内容哈希定位）和原文件链接 mediaUrl）、
 `get_media`（单项详情：OCR 文字、标签、人物等）、`find_similar`（找相似）。
 
 ```yaml
@@ -283,7 +283,7 @@ search instant. Lower `VIXEL_THREADS` (e.g. `2`) for a gentler, slower index.
 With `VIXEL_MCP_TOKEN` set, the server exposes an [MCP](https://modelcontextprotocol.io)
 endpoint (Streamable HTTP) at `/mcp`, so AI clients and agents can query the library in
 natural language. All tools are **read-only**: `search_media` (semantic + text-in-image +
-filename search, with matched video time ranges, a vixel:// deep link and an http media link),
+filename search, with matched video time ranges, a vixel:// deep link, a web page link `httpUrl` (/open?…, addressed by content hash) and the raw file `mediaUrl`),
 `get_media` (details of one item: OCR text, tags, people, …) and `find_similar`.
 
 ```yaml

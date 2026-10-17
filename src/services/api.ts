@@ -26,6 +26,7 @@ import { CleanupStore } from '../core/cleanupStore'
 import { CollectStore } from '../core/collectStore'
 import { resolveLocale, setLocale, type LocaleSetting } from '../shared/i18n'
 import type { MediaFilters, ThemeMode, EmbeddingConfig, PersonSuggestion, PersonFace, ImageQueryInput, ImageSearchResponse, SearchResult } from '../shared/types'
+import type { DeepLinkTarget } from '../shared/deeplink'
 import type { DupScanProgress } from '../shared/cleanup'
 import type { ServiceEvents } from './events'
 import { BackupService } from './backup'
@@ -219,6 +220,32 @@ function buildApi(ctx: ServiceContext, deps: {
     },
 
     // ─── 照片 / 媒体详情 ─────────────────────────────────────
+    /**
+     * 链接（vixel://open 深链接 / 网页 /open）→ 结果：hash（内容哈希，清库重建 / 移动文件后仍有效）优先，
+     * video / photo id 兜底。时间点尽量落到包含它的已索引片段（详情页时间轴整段高亮），
+     * 不在任何片段里就按原时间点 seek。找不到返回 null。
+     */
+    resolveLink: async (target: DeepLinkTarget): Promise<SearchResult | null> => {
+      if (!target || typeof target !== 'object') return null
+      let photo = target.hash ? db.getRepresentativeByHash(target.hash) : undefined
+      if (!photo && target.videoId != null) {
+        // 链接里的 hash 是代表图（首帧 / 封面）的，不是视频文件的 —— 按视频 id 找它的代表图行
+        const frame = db.getFramePhotosByVideo(target.videoId)[0]
+        if (frame?.fileHash) photo = db.getRepresentativeByHash(frame.fileHash)
+      }
+      if (!photo && target.photoId != null) photo = db.getPhoto(target.photoId)
+      if (!photo) return null
+      const result: SearchResult = { photo, score: 1 }
+      if (target.timeMs != null && photo.videoId != null) {
+        const ms = target.timeMs
+        // 正好是某个已索引片段的起点（"拷贝链接"产出的就是）→ 用整段，详情页时间轴能整段高亮；
+        // 任意时间点 → 起点保持精确（播放器按 startMs seek），终点借所在片段的
+        const seg = db.getMediaDetail(photo.videoId)?.segments.find((s) => ms >= s.startMs && ms < s.endMs)
+        result.segment = seg && seg.startMs === ms ? seg : { startMs: ms, endMs: Math.max(ms, seg?.endMs ?? ms) }
+      }
+      return result
+    },
+
     getMediaDetail: async (videoId: number) => {
       const detail = db.getMediaDetail(videoId)
       // 老版本索引的视频没记分辨率：第一次打开时探一下补上（ffmpeg -i 只读文件头，几十毫秒）

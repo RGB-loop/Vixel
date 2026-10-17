@@ -10,7 +10,7 @@
 import type { DatabaseInstance } from '../db'
 import type { SearchEngine } from '../search'
 import { TagStore } from '../tagStore'
-import { deepLinkForItem } from '../../shared/deeplink'
+import { deepLinkForItem, httpLinkForItem } from '../../shared/deeplink'
 import type { MediaKind, Photo, SearchResult } from '../../shared/types'
 
 export interface McpToolContext {
@@ -93,11 +93,19 @@ const posInt = (v: unknown): number | undefined => {
   return Number.isInteger(n) && n > 0 ? n : undefined
 }
 
-/** http 媒体链接：图片用原图路由，音视频用源文件路由（支持 Range），浏览器里打开仍需登录 */
-function httpUrlFor(photo: Photo, base: string | null | undefined): string | undefined {
-  if (!base) return undefined
+/**
+ * http 链接（有本地接口 / 服务器地址时才带）：
+ *   httpUrl  —— 网页查看页 /open?…（按内容 hash 定位，活过重建索引；音视频跳到时间点），给人点、贴进笔记
+ *   mediaUrl —— 原文件（图片原图 / 音视频源文件，支持 Range），给要下载 / 处理文件的 Agent
+ * 浏览器里打开仍需登录（有口令时）
+ */
+function httpLinks(photo: Photo, base: string | null | undefined, timeMs?: number | null): Record<string, string> {
+  if (!base) return {}
   const root = base.replace(/\/$/, '')
-  return photo.videoId != null ? `${root}/media/media/${photo.videoId}` : `${root}/media/image/${photo.id}`
+  return {
+    httpUrl: httpLinkForItem(root, photo, timeMs),
+    mediaUrl: photo.videoId != null ? `${root}/media/media/${photo.videoId}` : `${root}/media/image/${photo.id}`,
+  }
 }
 
 function resultItem(ctx: McpToolContext, r: SearchResult, extra: McpCallExtra): Record<string, unknown> {
@@ -117,7 +125,7 @@ function resultItem(ctx: McpToolContext, r: SearchResult, extra: McpCallExtra): 
     ...(r.segment ? { timeRange: { startSec: r.segment.startMs / 1000, endSec: r.segment.endMs / 1000 } } : {}),
     ...(p.takenAt ? { takenAt: p.takenAt } : {}),
     link: deepLinkForItem(p, r.segment?.startMs),
-    ...(httpUrlFor(p, extra.httpBase) ? { httpUrl: httpUrlFor(p, extra.httpBase) } : {}),
+    ...httpLinks(p, extra.httpBase, r.segment?.startMs),
   }
 }
 
@@ -176,7 +184,7 @@ function getMedia(ctx: McpToolContext, args: Record<string, unknown>, extra: Mcp
     favorite: !!photo.favorite,
     ...(media ? { segments: media.segments.map((s) => ({ startSec: s.startMs / 1000, endSec: s.endMs / 1000 })) } : {}),
     link: deepLinkForItem(photo),
-    ...(httpUrlFor(photo, extra.httpBase) ? { httpUrl: httpUrlFor(photo, extra.httpBase) } : {}),
+    ...httpLinks(photo, extra.httpBase),
   }
 }
 

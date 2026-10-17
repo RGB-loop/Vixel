@@ -127,7 +127,10 @@ export function renderLoginPage(locale: 'zh' | 'en'): string {
         headers: { 'content-type': 'application/json', 'x-vixel': '1' },
         body: JSON.stringify({ password: pw.value }),
       })
-      if (res.ok) { location.replace('/'); return }
+      // 从 /open?… 这类链接被导过来的：登录后回到原地（只认站内路径，防开放重定向）
+      const next = new URLSearchParams(location.search).get('next')
+      const ok = next && next.charAt(0) === '/' && next.charAt(1) !== '/' && next.charCodeAt(1) !== 92 // 92 = 反斜杠：浏览器把「/反斜杠…」也当成 //…
+      if (res.ok) { location.replace(ok ? next : '/'); return }
       err.textContent = res.status === 429 ? ${js(s.rateLimited)} : ${js(s.wrongPassword)}
     } catch {
       err.textContent = ${js(s.networkError)}
@@ -147,6 +150,12 @@ export interface WebAppDeps {
   isAuthed(req: IncomingMessage): boolean
 }
 
+/** 登录页的 next 参数：只接受站内路径（/ 开头，第二个字符不是 / 或 \\ —— 浏览器把 /\\x 当成 //x），防开放重定向 */
+function safeNext(req: IncomingMessage): string | null {
+  const next = new URL(req.url ?? '/', 'http://x').searchParams.get('next')
+  return next && /^\/(?![\/\\])/.test(next) ? next : null
+}
+
 /**
  * 处理 GET/HEAD 的网页前端请求（/api、/media、/healthz 之外的所有路径）。
  * 总是响应（含 404），调用方不再兜底。
@@ -155,13 +164,16 @@ export async function handleWebRequest(pathname: string, req: IncomingMessage, r
   const authed = deps.isAuthed(req)
 
   if (pathname === '/login') {
-    if (authed) return redirect(res, '/')
+    if (authed) return redirect(res, safeNext(req) ?? '/')
     return sendHtml(res, 200, renderLoginPage(loginLocale(req)))
   }
 
   if (!authed) {
     // 浏览器导航去登录页；fetch/资源请求与 API 同样给 401
-    if ((req.headers.accept ?? '').includes('text/html')) return redirect(res, '/login')
+    // 打开的是网页链接（/open?…）：带上原地址，登录后回来
+    if ((req.headers.accept ?? '').includes('text/html')) {
+      return redirect(res, pathname === '/open' ? `/login?next=${encodeURIComponent(req.url ?? '/')}` : '/login')
+    }
     sendJson(res, 401, { ok: false, error: 'Not authenticated' })
     return
   }

@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `127.0.0.1:41721` (port configurable), optional LAN access (binds 0.0.0.0, password
   required — browse your desktop library from a phone), and a read-only MCP endpoint
   at `/mcp` (Streamable HTTP, bearer token with copy/regenerate in Settings).
+- **Web links that survive re-indexing.** With the Local API on (or in the NAS web UI), Copy Web
+  Link / Copy Markdown with Thumbnail gives `http://<host>:<port>/open?hash=…&t=…`: it opens the
+  item in any browser on the network — phones and web-based notes included — and video jumps to
+  the timestamp; the Markdown form embeds a thumbnail (`/media/thumbh/<hash>`) so notes show a
+  preview. Like deep links they are addressed by content hash. Opening one while signed out goes
+  to the login page and back. MCP results now carry this page link as `httpUrl` (raw file:
+  `mediaUrl`).
 - **MCP for AI clients.** Read-only tools `search_media` / `get_media` / `find_similar`
   (results carry scores, matched video time ranges, `vixel://` deep links and http media
   links). Available three ways: desktop Local API `/mcp`, server edition `/mcp`

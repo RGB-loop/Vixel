@@ -20,7 +20,7 @@ import { t } from '../shared/i18n'
 
 export interface DeepLinkDeps {
   /** 按 target 查库拼出结果（含命中片段）；找不到返回 null */
-  resolve(target: DeepLinkTarget): SearchResult | null
+  resolve(target: DeepLinkTarget): Promise<SearchResult | null>
   /** 在主窗口打开（quickPanel.openResult：窗口不存在时创建，加载完前暂存） */
   open(result: SearchResult): void
   /** 链接指向的内容不在库里：把主窗口带到前台再说明 */
@@ -34,7 +34,7 @@ function isDeepLink(arg: string): boolean {
   return typeof arg === 'string' && arg.startsWith('vixel://')
 }
 
-function handle(url: string): void {
+async function handle(url: string): Promise<void> {
   if (!deps) {
     pendingUrls.push(url)
     return
@@ -44,7 +44,7 @@ function handle(url: string): void {
     console.warn(`[deeplink] ignoring malformed link: ${url}`)
     return
   }
-  const result = deps.resolve(target)
+  const result = await deps.resolve(target)
   if (result) {
     console.log(`[deeplink] opening ${url}`)
     deps.open(result)
@@ -64,7 +64,7 @@ export function initDeepLinks(): boolean {
   if (process.platform === 'darwin') {
     app.on('open-url', (event, url) => {
       event.preventDefault()
-      if (isDeepLink(url)) handle(url)
+      if (isDeepLink(url)) void handle(url)
     })
     return true
   }
@@ -72,7 +72,7 @@ export function initDeepLinks(): boolean {
   if (!app.requestSingleInstanceLock()) return false
   app.on('second-instance', (_event, argv) => {
     const url = argv.find(isDeepLink)
-    if (url) handle(url)
+    if (url) void handle(url)
     else deps?.ensureMainWindow()
   })
   return true
@@ -94,5 +94,5 @@ export function activateDeepLinks(d: DeepLinkDeps): void {
   if (argvUrl && !pendingUrls.includes(argvUrl)) pendingUrls.push(argvUrl)
   const queued = pendingUrls
   pendingUrls = []
-  for (const url of queued) handle(url)
+  for (const url of queued) void handle(url)
 }

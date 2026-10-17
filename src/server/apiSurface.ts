@@ -40,6 +40,7 @@ export const IMPLEMENTED_METHODS = [
   'retryFailedTasks',
   'clearFailedTasks',
   'getMediaDetail',
+  'resolveLink',
   'getAppPath',
   'getModelStatus',
   'getEmbeddingConfig',

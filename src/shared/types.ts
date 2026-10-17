@@ -30,7 +30,7 @@ export type MenuCommand =
   | 'source:cleanup'
 
 /** 网格右键菜单（原生 Menu.popup）里用户选中的动作 */
-export type ItemMenuAction = 'open' | 'quick-look' | 'reveal' | 'copy-path' | 'copy-link' | 'copy-md-link' | 'search-by-image' | 'open-external' | 'toggle-favorite'
+export type ItemMenuAction = 'open' | 'quick-look' | 'reveal' | 'copy-path' | 'copy-link' | 'copy-md-link' | 'copy-web-link' | 'copy-web-md' | 'search-by-image' | 'open-external' | 'toggle-favorite'
 
 /** 画面方向：全景 = 长宽比 ≥ 2:1（横竖都算），方形 = 长短边相差 10% 以内 */
 export type Orientation = 'landscape' | 'portrait' | 'square' | 'panorama'
@@ -357,6 +357,7 @@ export const IPC_CHANNELS = {
   RETRY_FAILED_TASKS: 'retry-failed-tasks',
   CLEAR_FAILED_TASKS: 'clear-failed-tasks',
   GET_MEDIA_DETAIL: 'get-media-detail',
+  RESOLVE_LINK: 'resolve-link',
 
   // 电源策略（设置 › 通用："电池供电时也索引"）
   GET_INDEX_ON_BATTERY: 'get-index-on-battery',

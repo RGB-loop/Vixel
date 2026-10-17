@@ -61,18 +61,21 @@ export interface MediaRouteDeps {
 }
 
 /**
- * 处理 GET /media/<kind>/<id>。返回 true 表示本函数已经响应（无论成败）。
+ * 处理 GET /media/<kind>/<id>，以及按内容哈希的缩略图 GET /media/thumbh/<hash>（网页链接里内嵌的预览，
+ * 活过重建索引）。返回 true 表示本函数已经响应（无论成败）。
  */
 export async function handleMediaRequest(pathname: string, res: ServerResponse, rangeHeader: string | null, deps: MediaRouteDeps): Promise<boolean> {
-  const m = /^\/media\/(thumb|image|media|sprite|face)\/(\d+)$/.exec(pathname)
-  if (!m) return false
-  const kind = m[1]
-  const id = parseInt(m[2], 10)
+  const byHash = /^\/media\/thumbh\/([0-9a-f]{8,64})$/i.exec(pathname)
+  const m = byHash ? null : /^\/media\/(thumb|image|media|sprite|face)\/(\d+)$/.exec(pathname)
+  if (!byHash && !m) return false
+  const kind = byHash ? 'thumbh' : m![1]
+  const id = m ? parseInt(m[2], 10) : 0
   const { services } = deps
 
   try {
     let path: string | null = null
     switch (kind) {
+      case 'thumbh': path = services.media.thumbPathByHash(byHash![1]); break
       case 'thumb': path = services.media.thumbPath(id); break
       case 'image': path = services.media.imagePath(id); break
       case 'media': path = services.media.mediaPath(id); break

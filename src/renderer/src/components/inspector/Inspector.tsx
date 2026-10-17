@@ -4,7 +4,8 @@ import type { ItemSource } from '../../../../shared/collect'
 import { formatDuration, formatFileSize, mediaKindOf } from '../../lib/format'
 import { downloadOriginal, imageUrl, mediaSrcUrl, thumbUrl } from '../../lib/mediaUrl'
 import { IS_WEB, revealLabel } from '../../lib/platform'
-import { deepLinkForItem, markdownLinkForItem } from '../../../../shared/deeplink'
+import { deepLinkForItem, markdownLinkForItem, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../../../shared/deeplink'
+import { copyText, useWebLinkBase } from '../../lib/webLinks'
 import { Icon } from '../shell/icons'
 import { TagEditor } from './TagEditor'
 import { designBadgeOf } from '../media/MediaCard'
@@ -89,7 +90,17 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
   const copyDeepLink = (markdown: boolean): void => {
     const url = deepLinkForItem(photo, segment?.startMs)
     const text = markdown ? markdownLinkForItem(media?.fileName ?? photo.fileName, url, segment?.startMs) : url
-    void navigator.clipboard.writeText(text).catch((e) => console.error('Copy failed:', e))
+    void copyText(text).catch((e) => console.error('Copy failed:', e))
+  }
+  // 网页链接（http://…/open?…，同样按 hash 定位）：网页版总有；桌面版本地接口开着时才有
+  const webBase = useWebLinkBase()
+  const copyWebLink = (markdown: boolean): void => {
+    if (!webBase) return
+    const url = httpLinkForItem(webBase, photo, segment?.startMs)
+    const text = markdown && photo.fileHash
+      ? markdownThumbLinkForItem(media?.fileName ?? photo.fileName, url, thumbUrlForHash(webBase, photo.fileHash), segment?.startMs)
+      : url
+    void copyText(text).catch((e) => console.error('Copy failed:', e))
   }
   // 音频代表图没有图片向量，embed_status 永远 pending，不能算"索引中"
   const indexState = kind === 'audio' || photo.embedStatus === 'done'
@@ -262,13 +273,17 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {IS_WEB ? (
-              // 网页版："在访达中显示"换成下载原文件；系统播放器不可用，隐藏
-              <ActionButton
-                icon="folder"
-                onClick={() => downloadOriginal(isMedia ? mediaSrcUrl(photo.videoId!) : imageUrl(photo.id), media?.fileName ?? photo.fileName)}
-              >
-                {t.web.downloadOriginal}
-              </ActionButton>
+              <>
+                {/* 网页版："在访达中显示"换成下载原文件；系统播放器不可用，隐藏 */}
+                <ActionButton
+                  icon="folder"
+                  onClick={() => downloadOriginal(isMedia ? mediaSrcUrl(photo.videoId!) : imageUrl(photo.id), media?.fileName ?? photo.fileName)}
+                >
+                  {t.web.downloadOriginal}
+                </ActionButton>
+                <ActionButton icon="link" onClick={() => copyWebLink(false)}>{t.menu.copyLink}</ActionButton>
+                <ActionButton icon="link" onClick={() => copyWebLink(true)}>{t.menu.copyWebMarkdown}</ActionButton>
+              </>
             ) : (
               <>
                 <ActionButton icon="folder" onClick={() => sourcePath && window.api.showInFinder(sourcePath)}>{revealLabel}</ActionButton>
@@ -280,6 +295,12 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
                 {/* 深链接（vixel://open?…）：贴进笔记后点击回到 Vixel 定位；网页版隐藏（等价物是 http 链接） */}
                 <ActionButton icon="link" onClick={() => copyDeepLink(false)}>{t.menu.copyLink}</ActionButton>
                 <ActionButton icon="link" onClick={() => copyDeepLink(true)}>{t.menu.copyMarkdownLink}</ActionButton>
+                {webBase && (
+                  <>
+                    <ActionButton icon="link" onClick={() => copyWebLink(false)}>{t.menu.copyWebLink}</ActionButton>
+                    <ActionButton icon="link" onClick={() => copyWebLink(true)}>{t.menu.copyWebMarkdown}</ActionButton>
+                  </>
+                )}
               </>
             )}
           </div>

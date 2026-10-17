@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IPC_CHANNELS, type MediaFilters, type SmartAlbum, type SmartAlbumMenuAction, type SearchResult, type WatchedFolder, type PhotoDetail, type PhotoLocation, type IndexProgress, type ModelStatus, type EmbeddingConfig, type Person, type FaceRecord, type BackupStatus, type MediaKind, type TaskOverview, type MediaDetail, type LibraryCounts, type MenuCommand, type ItemMenuAction, type ThemeMode, type PersonSuggestion, type PersonFace, type ImageQueryInput, type ImageSearchResponse, type SkippedFolder, type VoiceStatus, type VoiceTranscribeResult } from '../shared/types'
 import type { Locale, LocaleSetting } from '../shared/i18n'
+import type { DeepLinkTarget } from '../shared/deeplink'
 import { CLEANUP_CHANNELS, type DupScanResult, type DupScanProgress, type HiddenItem, type TrashResult } from '../shared/cleanup'
 import { COLLECT_CHANNELS, type CollectResult, type CollectServerStatus, type InboxInfo, type ItemSource } from '../shared/collect'
 import { TAG_CHANNELS, type Tag, type TagMenuAction, type TagsForSelection } from '../shared/tags'
@@ -76,7 +77,7 @@ const api = {
     }
   },
   /** 弹出原生右键菜单，resolve 为选中的动作；菜单关闭未选则为 null */
-  showItemMenu: (opts: { count: number; isMedia: boolean; favorite: boolean; canImageSearch: boolean }): Promise<ItemMenuAction | null> => {
+  showItemMenu: (opts: { count: number; isMedia: boolean; favorite: boolean; canImageSearch: boolean; webLinks?: boolean }): Promise<ItemMenuAction | null> => {
     return ipcRenderer.invoke(IPC_CHANNELS.SHOW_ITEM_MENU, opts)
   },
   /** 收藏 / 取消收藏（按内容 hash，同内容的副本一起变） */
@@ -190,6 +191,10 @@ const api = {
   },
   getMediaDetail: (videoId: number): Promise<MediaDetail | null> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_MEDIA_DETAIL, videoId)
+  },
+  /** 链接（vixel://open / 网页 /open 的定位参数）→ 结果；找不到返回 null */
+  resolveLink: (target: DeepLinkTarget): Promise<SearchResult | null> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.RESOLVE_LINK, target)
   },
 
   // 系统 / 模型状态

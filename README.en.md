@@ -29,7 +29,7 @@ Local AI search for photos, videos and audio. Fully offline, no account, nothing
 - **Clean up similar photos.** Finds burst shots, re-exports and lightly edited copies, suggests which one to keep, and hides the rest in Vixel or moves them to the Trash after you confirm.
 - **Offline map, similar photos, de-duplication, HEIC / RAW, quick look, dark mode.**
 - **CLI for scripts and agents:** `vixel search "sunset at the beach" --json`.
-- **Links for your notes.** Right-click → Copy Link / Copy Markdown Link gives a `vixel://` deep link to paste into Obsidian, Notes or any editor; clicking it opens Vixel at that item (video/audio jumps to the timestamp). Links are addressed by content hash, so they survive re-indexing.
+- **Links for your notes.** Right-click → Copy Link / Copy Markdown Link gives a `vixel://` deep link to paste into Obsidian, Notes or any editor; clicking it opens Vixel at that item (video/audio jumps to the timestamp). Links are addressed by content hash, so they survive re-indexing. With the Local API on you can also Copy Web Link / Copy Markdown with Thumbnail: an `http://…/open?…` link that opens on phones and in web-based notes, with an inline preview in Markdown (the NAS web UI offers the same).
 - **Local API (off by default).** Settings → General → Local API serves a web UI and HTTP API for your desktop library — enable LAN access (password required) to browse it from your phone — plus a read-only MCP endpoint at `/mcp` for AI clients (see below).
 
 <img src="docs/media/video.jpg" width="860" alt="Video segment search" />
