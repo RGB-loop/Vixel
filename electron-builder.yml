@@ -20,6 +20,8 @@ files:
   # 构建产物 / 模型 / 原生运行时都不进 asar：模型和 LiteRT 走 extraResources，dist 是 CLI，release 是上一次的打包输出
   # 注意：不要在 mac: / win: 下写 files —— 平台级 files 会整个替换这里的列表，上面的排除全部失效
   - '!{release,dist,resources}/**'
+  # 本地工作目录：worktree（含整份源码和资源副本）、server 的 Node ABI 依赖、自定义网页构建、测试输出
+  - '!{.claude,.git,server,e2e-out,coverage}/**'
   # onnxruntime-node（人脸 / OCR）自带全部平台的二进制，只留目标平台的
   - '!node_modules/onnxruntime-node/bin/napi-v*/!(${platform})/**'
 asar: true
