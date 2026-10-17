@@ -17,7 +17,10 @@ import type { RecognizedLine, TextBox } from './types'
 // PaddleOCR v5 默认配置
 const REC_IMG_H = 48              // 输入高度（v5 默认 48）
 const REC_BATCH_SIZE = 6          // 每批一次性推理多少个文本框
-const REC_MAX_WIDTH = 320         // 任一框最大输入宽度（防止极长行 OOM）
+// 任一框最大输入宽度。PaddleOCR 按每行宽高比动态取宽、不设 320 的上限 —— 之前卡在 320（宽高比 < 7），
+// 一行三四十个汉字被压成 320px、每字不到 10px，识别出来丢一大半（issue #3）。
+// 3200 ≈ 宽高比 66，覆盖整行截图文字；更长的极端行才会被压缩（防 OOM：单框张量 3×48×3200 ≈ 1.8 MB）
+const REC_MAX_WIDTH = 3200
 
 // 归一化（PP-OCR v5 与 ImageNet 相同 mean/std；v3 是 [0.5, 0.5, 0.5]）
 const MEAN = [0.5, 0.5, 0.5]
@@ -83,7 +86,9 @@ export async function recognizeBoxes(
   }
   if (crops.length === 0) return []
 
-  // 2) 分批：每批内 padding 到 max(w)，统一成 [B, 3, H, maxW]
+  // 2) 分批：按宽度排序（同 PaddleOCR 按宽高比排序）让每批宽度接近，padding 少；
+  //    每批内 padding 到 max(w)，统一成 [B, 3, H, maxW]。输出顺序无所谓，调用方按位置重排
+  crops.sort((a, b) => a.w - b.w)
   const results: RecognizedLine[] = []
   for (let i = 0; i < crops.length; i += REC_BATCH_SIZE) {
     const batch = crops.slice(i, i + REC_BATCH_SIZE)

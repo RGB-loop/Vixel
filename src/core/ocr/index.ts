@@ -29,9 +29,9 @@ let _modelsDir = ''
 const remote = new RemoteReady()
 
 /** 由 main 在启动时调用 */
-/** v5 rec 模型对应的字典；换字典 / 模型版本时同时改 OCR_PIPELINE_VERSION，已有结果会重扫 */
+/** v5 rec 模型对应的字典；换字典 / 模型版本 / 识别预处理时同时改 OCR_PIPELINE_VERSION，已有结果会重扫（v5-wide：长行不再被压到 320px） */
 export const OCR_DICT_FILE = 'ppocrv5_dict.txt'
-export const OCR_PIPELINE_VERSION = 'v5-dict'
+export const OCR_PIPELINE_VERSION = 'v5-wide'
 
 export function setOcrModelsDir(dir: string): void {
   _modelsDir = dir
