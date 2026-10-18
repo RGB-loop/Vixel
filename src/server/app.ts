@@ -16,7 +16,9 @@ import { readJsonBody, readRawBody, parseCookies, sendJson, clientIp, acceptLang
 import { ApiDispatcher } from './api'
 import { createEventHub } from './events'
 import { handleMediaRequest } from './media'
-import { handleWebRequest } from './webapp'
+import { handleWebRequest, loginLocale, renderOpenedPage, sendHtml } from './webapp'
+import { networkInterfaces } from 'os'
+import { parseLinkParams, type DeepLinkTarget } from '../shared/deeplink'
 import { handleMcpRequest } from './mcp'
 import type { McpServer } from '../core/mcp/server'
 import { resolveLocale, setLocale } from '../shared/i18n'
@@ -53,6 +55,16 @@ export interface ServerAppOptions {
    * 桌面宿主不传 —— 手机浏览器的语言不该改掉桌面应用的界面语言。
    */
   preferredLanguages?: string[]
+  /**
+   * 桌面宿主：本机点开的 /open?… 链接直接在 Vixel 窗口里定位（返回是否找到），浏览器里只留一个"已打开"页。
+   * 别的设备（局域网手机）照常走网页查看页。服务器版不传
+   */
+  openInApp?: (target: DeepLinkTarget) => Promise<boolean>
+  /**
+   * 仅链接模式（桌面没开"本地接口"时常驻）：只响应 /open 和 /media/thumbh/<hash>（Markdown 内嵌预览），
+   * 库的其余内容一概不出
+   */
+  linksOnly?: boolean
 }
 
 export interface VixelServerApp {
@@ -113,6 +125,29 @@ function sessionCookie(state: AppState, req: IncomingMessage, token: string): st
 export function loopbackHost(host: string | string[] | undefined): boolean {
   const h = Array.isArray(host) ? host[0] : host
   return !!h && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(h)
+}
+
+/** 请求来自本机：回环地址，或本机网卡自己的地址（开了局域网、链接里是 192.168.x.x 时在本机点开） */
+export function isLocalRequest(req: Pick<IncomingMessage, 'socket'>): boolean {
+  const addr = (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '')
+  if (addr === '127.0.0.1' || addr === '::1') return true
+  return Object.values(networkInterfaces()).some((list) => list?.some((a) => a.address === addr))
+}
+
+/**
+ * 本机点开的链接：交给宿主在 Vixel 里定位，浏览器里回一个"已打开"页。
+ * 只认顶层导航（笔记 / 聊天软件把链接交给浏览器打开就是导航）：别的网页在后台 fetch / img 这个地址
+ * 不会让 Vixel 平白跳出来（没有 Sec-Fetch-Mode 头的老浏览器照常放行）
+ */
+async function handleOpenInApp(state: AppState, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+  const mode = req.headers['sec-fetch-mode']
+  if (mode && mode !== 'navigate') {
+    sendJson(res, 403, { ok: false, error: 'Links open only as a top-level navigation' })
+    return
+  }
+  const target = parseLinkParams(url.searchParams)
+  const found = target ? await state.openInApp!(target) : false
+  sendHtml(res, found ? 200 : 404, renderOpenedPage(loginLocale(req), found))
 }
 
 function isAuthed(state: AppState, req: IncomingMessage): boolean {
@@ -198,6 +233,17 @@ async function handleRequest(state: AppState, req: IncomingMessage, res: ServerR
 
   if (!state.requireAuth && !loopbackHost(req.headers.host)) {
     sendJson(res, 403, { ok: false, error: 'Host not allowed' })
+    return
+  }
+
+  // ─ 本机点开的链接：在桌面 Vixel 里打开 ─
+  if (pathname === '/open' && req.method === 'GET' && state.openInApp && isLocalRequest(req)) {
+    await handleOpenInApp(state, req, res, url)
+    return
+  }
+  // 仅链接模式：除了按 hash 取缩略图（Markdown 内嵌预览）之外什么都不给
+  if (state.linksOnly && !(req.method === 'GET' && pathname.startsWith('/media/thumbh/'))) {
+    sendJson(res, 404, { ok: false, error: 'not found' })
     return
   }
 

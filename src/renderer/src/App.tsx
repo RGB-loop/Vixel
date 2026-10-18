@@ -20,7 +20,7 @@ import { thumbUrl } from './lib/mediaUrl'
 import { sourcePathOf } from './lib/resultActions'
 import { useSearchHistory, normalizeQuery } from './lib/searchHistory'
 import { t } from '../../shared/i18n'
-import { deepLinkForItem, markdownLinkForItem, parseLinkParams, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../shared/deeplink'
+import { markdownLinkForItem, parseLinkParams, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../shared/deeplink'
 import { copyText, useWebLinkBase } from './lib/webLinks'
 import { FilterBar, hasExtraFilters, countExtraFilters, describeExtraFilters, useTags, type ExtraFilters } from './components/shell/FilterBar'
 import { useSmartAlbums, sameAlbumState, splitAlbumFilters } from './lib/smartAlbums'
@@ -870,25 +870,19 @@ function App(): JSX.Element {
     try { await navigator.clipboard.writeText(paths.join('\n')) } catch (e) { console.error('Copy failed:', e) }
   }, [])
 
-  // 深链接（vixel://open?…，见 shared/deeplink.ts）：贴进笔记后点击回到 Vixel 定位；
-  // 命中片段的起点作为时间点，Markdown 形态是 [文件名 @ 0:42](vixel://…)
-  const copyDeepLinks = useCallback(async (items: SearchResult[], markdown: boolean) => {
-    const lines = items.map((r) => {
-      const url = deepLinkForItem(r.photo, r.segment?.startMs)
-      return markdown ? markdownLinkForItem(r.photo.fileName, url, r.segment?.startMs) : url
-    })
-    try { await navigator.clipboard.writeText(lines.join('\n')) } catch (e) { console.error('Copy failed:', e) }
-  }, [])
-
-  // 网页链接（http://…/open?…）：本地接口 / 网页版才有；Markdown 形态带按 hash 取的缩略图，笔记里直接显示预览
+  // 拷贝链接（http://…/open?…，见 shared/deeplink.ts）：贴进笔记 / 聊天能被识别成链接，本机点开回到 Vixel 定位，
+  // 手机等其他设备打开网页查看页。命中片段的起点作为时间点；Markdown 形态 [文件名 @ 0:42](链接)，
+  // 带缩略图的形态内嵌按 hash 取的预览图
   const webBase = useWebLinkBase()
-  const copyWebLinks = useCallback(async (items: SearchResult[], markdown: boolean) => {
+  const copyLinks = useCallback(async (items: SearchResult[], form: 'url' | 'markdown' | 'thumb') => {
     if (!webBase) return
     const lines = items.map((r) => {
       const url = httpLinkForItem(webBase, r.photo, r.segment?.startMs)
-      return markdown && r.photo.fileHash
-        ? markdownThumbLinkForItem(r.photo.fileName, url, thumbUrlForHash(webBase, r.photo.fileHash), r.segment?.startMs)
-        : url
+      if (form === 'url') return url
+      if (form === 'thumb' && r.photo.fileHash) {
+        return markdownThumbLinkForItem(r.photo.fileName, url, thumbUrlForHash(webBase, r.photo.fileHash), r.segment?.startMs)
+      }
+      return markdownLinkForItem(r.photo.fileName, url, r.segment?.startMs)
     })
     try { await copyText(lines.join('\n')) } catch (e) { console.error('Copy failed:', e) }
   }, [webBase])
@@ -924,15 +918,14 @@ function App(): JSX.Element {
       case 'quick-look': setQuickLookId(first.photo.id); break
       case 'reveal': revealItems(items); break
       case 'copy-path': copyPaths(items); break
-      case 'copy-link': copyDeepLinks(items, false); break
-      case 'copy-md-link': copyDeepLinks(items, true); break
-      case 'copy-web-link': copyWebLinks(items, false); break
-      case 'copy-web-md': copyWebLinks(items, true); break
+      case 'copy-link': copyLinks(items, 'url'); break
+      case 'copy-md-link': copyLinks(items, 'markdown'); break
+      case 'copy-web-md': copyLinks(items, 'thumb'); break
       case 'search-by-image': searchWithItem(first); break
       case 'open-external': if (first.photo.videoId != null) window.api.openSourceVideo(first.photo.videoId); break
       case 'toggle-favorite': toggleFavorite(items); break
     }
-  }, [revealItems, copyPaths, copyDeepLinks, copyWebLinks, searchWithItem, toggleFavorite])
+  }, [revealItems, copyPaths, copyLinks, searchWithItem, toggleFavorite])
 
   const handleItemContextMenu = useCallback(async (index: number, e: React.MouseEvent) => {
     e.preventDefault()

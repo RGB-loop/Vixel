@@ -66,6 +66,15 @@ export function LocalApiSettings(): JSX.Element {
     : status.running ? t.localapi.stateRunning(status.port)
     : t.localapi.stateStopped
   const bad = !!status?.error && status.enabled
+  const portInput = (
+    <input
+      value={port}
+      onChange={(e) => setPort(e.target.value.replace(/\D/g, ''))}
+      onBlur={commitPort}
+      onKeyDown={(e) => { if (e.key === 'Enter') commitPort() }}
+      className="w-20 h-6 px-2 rounded bg-raised border border-line text-caption text-ink tabular-nums focus:outline-none focus:border-accent/50"
+    />
+  )
 
   return (
     <section className="settings-row flex gap-6" data-localapi-settings>
@@ -77,6 +86,14 @@ export function LocalApiSettings(): JSX.Element {
           <span className={`text-caption ${bad ? 'text-bad' : 'text-ink-3'}`}>{state}</span>
         </label>
         <p className="text-caption text-ink-4">{t.localapi.note}</p>
+
+        {/* 本地接口关着时也常驻一个只响应 /open 的本机链接服务（"拷贝链接"靠它）；它的端口被占时在这里说明并允许换端口 */}
+        {status && !status.enabled && status.error === 'port-in-use' && (
+          <div className="flex items-center gap-2 mt-1" data-link-port-in-use>
+            <span className="text-caption text-bad flex-1 min-w-0">{t.localapi.linkPortInUse(status.port)}</span>
+            {portInput}
+          </div>
+        )}
 
         {status?.enabled && (
           <div className="flex flex-col gap-2.5 mt-1 p-3 rounded-lg bg-fill">
@@ -92,13 +109,7 @@ export function LocalApiSettings(): JSX.Element {
             )}
             <div className="flex items-center gap-2">
               <span className="w-16 flex-shrink-0 text-caption text-ink-3">{t.localapi.port}</span>
-              <input
-                value={port}
-                onChange={(e) => setPort(e.target.value.replace(/\D/g, ''))}
-                onBlur={commitPort}
-                onKeyDown={(e) => { if (e.key === 'Enter') commitPort() }}
-                className="w-20 h-6 px-2 rounded bg-raised border border-line text-caption text-ink tabular-nums focus:outline-none focus:border-accent/50"
-              />
+              {portInput}
             </div>
             <div className="flex items-center gap-2">
               <span className="w-16 flex-shrink-0 text-caption text-ink-3">{t.localapi.passwordLabel}</span>

@@ -23,6 +23,13 @@ export interface LocalApiStatus {
   urls: string[]
   /** 启动 / 配置失败：'port-in-use' | 'password-required'，其他为原始错误信息 */
   error: string | null
+  /**
+   * 链接服务在跑（"拷贝链接"可用）：本地接口关着时也常驻一个只响应 /open 的本机服务，
+   * 在本机点开链接就在 Vixel 里定位
+   */
+  linksRunning: boolean
+  /** "拷贝链接"用的基址：开了局域网给局域网地址（手机也能点开），否则 http://localhost:端口；链接服务没起来为 null */
+  linkBase: string | null
 }
 
 export interface LocalApiPatch {

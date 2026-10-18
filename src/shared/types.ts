@@ -30,7 +30,7 @@ export type MenuCommand =
   | 'source:cleanup'
 
 /** 网格右键菜单（原生 Menu.popup）里用户选中的动作 */
-export type ItemMenuAction = 'open' | 'quick-look' | 'reveal' | 'copy-path' | 'copy-link' | 'copy-md-link' | 'copy-web-link' | 'copy-web-md' | 'search-by-image' | 'open-external' | 'toggle-favorite'
+export type ItemMenuAction = 'open' | 'quick-look' | 'reveal' | 'copy-path' | 'copy-link' | 'copy-md-link' | 'copy-web-md' | 'search-by-image' | 'open-external' | 'toggle-favorite'
 
 /** 画面方向：全景 = 长宽比 ≥ 2:1（横竖都算），方形 = 长短边相差 10% 以内 */
 export type Orientation = 'landscape' | 'portrait' | 'square' | 'panorama'

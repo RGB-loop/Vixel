@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-18
+
+### Changed
+- **Copy Link now gives an http link that every app recognizes.** Right-click / inspector →
+  Copy Link, Copy Markdown Link and Copy Markdown with Thumbnail all produce
+  `http://localhost:41721/open?hash=…&t=…` instead of `vixel://…`: note, chat and document apps
+  highlight it as a link. Opening it on this machine jumps Vixel to that item (video at the
+  timestamp) and leaves a small "Opened in Vixel" page in the browser; on other devices (LAN
+  access on) it opens the web view. To make this work without turning on the Local API, the
+  desktop app now keeps a tiny link service on 127.0.0.1 while it runs: it answers only `/open`
+  and hash-addressed thumbnails, only to this machine, and only for top-level navigations — a
+  web page can't make Vixel jump by fetching the URL in the background. Links need Vixel to be
+  running. `vixel://` links already pasted keep working; the menu no longer copies them.
+
 ## [0.5.2] - 2026-10-18
 
 ### Added

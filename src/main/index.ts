@@ -756,8 +756,18 @@ app.whenReady().then(async () => {
     dataDir: app.getPath('userData'),
     webDir: existsSync(prodWebDir) ? prodWebDir : join(process.cwd(), 'dist', 'web'),
     version: app.getVersion(),
+    // 本机点开的网页链接：和 vixel:// 深链接同一条路 —— 定位后交给主窗口打开（带时间点）
+    openInApp: async (target) => {
+      const result = await services.api.resolveLink(target)
+      if (!result) return false
+      quickPanel!.openResult(result)
+      // 从浏览器点进来：vixel:// 由系统激活应用，http 不会 —— 主动把 Vixel 拉到前台
+      if (process.platform === 'darwin') app.focus({ steal: true })
+      return true
+    },
   })
-  localApi.startIfEnabled()
+  // 常驻：没开本地接口时也起一个只响应 /open 的本机服务，"拷贝链接"出来的 http 链接才点得开
+  localApi.startOnLaunch()
   // PDF / AI 的 pdf.js 栅格化服务（隐藏窗口按需创建；Windows/Linux 主路径，macOS 兜底）
   registerPdfRenderer()
   registerIpcHandlers()
