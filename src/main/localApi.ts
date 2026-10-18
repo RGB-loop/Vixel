@@ -21,6 +21,7 @@ import { createToolContext } from '../core/mcp/tools'
 import type { VixelServices } from '../services/api'
 import type { createServiceEvents } from '../services/events'
 import { DEFAULT_LOCALAPI_PORT, type LocalApiPatch, type LocalApiStatus } from '../shared/localapi'
+import type { DeepLinkTarget } from '../shared/deeplink'
 
 const KEY = {
   enabled: 'localapi.enabled',
@@ -31,6 +32,8 @@ const KEY = {
 } as const
 
 export interface LocalApiDeps {
+  /** 本机点开的 /open?… 链接：在 Vixel 窗口里定位（返回是否找到） */
+  openInApp: (target: DeepLinkTarget) => Promise<boolean>
   db: DatabaseInstance
   services: VixelServices
   events: ReturnType<typeof createServiceEvents>
@@ -45,6 +48,8 @@ export interface LocalApiDeps {
 export class LocalApiServer {
   private server: Server | null = null
   private app: VixelServerApp | null = null
+  /** 当前跑的是完整本地接口，还是只响应链接的常驻服务 */
+  private linksOnly = false
   private error: string | null = null
 
   constructor(private deps: LocalApiDeps) {}
@@ -69,7 +74,7 @@ export class LocalApiServer {
 
   /** 正在监听的可访问地址：回环 + （LAN 时）各网卡的 IPv4 */
   private urls(): string[] {
-    if (!this.server?.listening) return []
+    if (!this.server?.listening || this.linksOnly) return []
     const out = [`http://127.0.0.1:${this.port}`]
     if (this.lan) {
       for (const addrs of Object.values(networkInterfaces())) {
@@ -81,16 +86,25 @@ export class LocalApiServer {
     return out
   }
 
+  /** "拷贝链接"的基址：局域网开着 → 第一个局域网地址；否则 localhost（读着比 127.0.0.1 友好，Host 校验同样放行） */
+  private linkBase(): string | null {
+    if (!this.server?.listening) return null
+    const lan = this.urls().find((u) => !u.startsWith('http://127.0.0.1'))
+    return lan ?? `http://localhost:${this.port}`
+  }
+
   status(): LocalApiStatus {
     return {
       enabled: this.enabled,
-      running: this.server?.listening ?? false,
+      running: (this.server?.listening ?? false) && !this.linksOnly,
       port: this.port,
       lan: this.lan,
       hasPassword: this.password.length > 0,
       mcpToken: this.mcpToken,
       urls: this.urls(),
       error: this.error,
+      linksRunning: this.server?.listening ?? false,
+      linkBase: this.linkBase(),
     }
   }
 
@@ -118,7 +132,7 @@ export class LocalApiServer {
     }
     if (typeof p.enabled === 'boolean') db.setMetaState(KEY.enabled, p.enabled ? '1' : '0')
     await this.stop()
-    if (this.enabled) await this.start()
+    await this.start()
     return this.status()
   }
 
@@ -132,14 +146,16 @@ export class LocalApiServer {
     return this.status()
   }
 
-  startIfEnabled(): void {
-    if (this.enabled) void this.start()
+  /** 应用启动时调用：开了本地接口就起完整栈，否则起只响应链接的常驻服务 */
+  startOnLaunch(): void {
+    void this.start()
   }
 
   private start(): Promise<void> {
     this.error = null
-    const { db, services, events, searchEngine, dataDir, webDir, version } = this.deps
-    const lan = this.lan
+    const { db, services, events, searchEngine, dataDir, webDir, version, openInApp } = this.deps
+    const linksOnly = !this.enabled
+    const lan = this.lan && !linksOnly
     const port = this.port
     // LAN 必须有口令（update 已拦；这里兜底防直接改库）
     if (lan && !this.password) {
@@ -152,12 +168,14 @@ export class LocalApiServer {
       events,
       dataDir,
       webDir,
+      openInApp,
+      linksOnly,
       // 仅回环时不要求登录（与浏览器扩展收集服务一致）；一开局域网就强制口令，连本机也要登录
       password: lan ? this.password : null,
       cookieSecure: false,
       trustProxy: false,
       allowedRoots: () => [dataDir, ...db.getFolders().map((f) => f.path)],
-      mcp: {
+      mcp: linksOnly ? null : {
         server: createMcpServer(createToolContext(db, searchEngine), {
           name: 'vixel',
           version,
@@ -182,7 +200,10 @@ export class LocalApiServer {
       server.listen(port, lan ? '0.0.0.0' : '127.0.0.1', () => {
         this.server = server
         this.app = app
-        console.log(`[localapi] serving library on ${lan ? '0.0.0.0' : '127.0.0.1'}:${port} (lan: ${lan}, auth: ${lan ? 'password' : 'none'}, /mcp: bearer token)`)
+        this.linksOnly = linksOnly
+        console.log(linksOnly
+          ? `[localapi] link service on 127.0.0.1:${port} (/open only)`
+          : `[localapi] serving library on ${lan ? '0.0.0.0' : '127.0.0.1'}:${port} (lan: ${lan}, auth: ${lan ? 'password' : 'none'}, /mcp: bearer token)`)
         resolve()
       })
     })

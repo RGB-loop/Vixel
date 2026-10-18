@@ -4,7 +4,7 @@ import type { ItemSource } from '../../../../shared/collect'
 import { formatDuration, formatFileSize, mediaKindOf } from '../../lib/format'
 import { downloadOriginal, imageUrl, mediaSrcUrl, thumbUrl } from '../../lib/mediaUrl'
 import { IS_WEB, revealLabel } from '../../lib/platform'
-import { deepLinkForItem, markdownLinkForItem, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../../../shared/deeplink'
+import { markdownLinkForItem, httpLinkForItem, markdownThumbLinkForItem, thumbUrlForHash } from '../../../../shared/deeplink'
 import { copyText, useWebLinkBase } from '../../lib/webLinks'
 import { Icon } from '../shell/icons'
 import { TagEditor } from './TagEditor'
@@ -86,20 +86,16 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
   const sourcePath = isMedia ? media?.filePath : photo.filePath
   const dup = photo.duplicateCount && photo.duplicateCount > 1 ? photo.duplicateCount : 0
 
-  // 深链接：hash 优先（重建索引后仍有效）；媒体带上命中片段的起点
-  const copyDeepLink = (markdown: boolean): void => {
-    const url = deepLinkForItem(photo, segment?.startMs)
-    const text = markdown ? markdownLinkForItem(media?.fileName ?? photo.fileName, url, segment?.startMs) : url
-    void copyText(text).catch((e) => console.error('Copy failed:', e))
-  }
-  // 网页链接（http://…/open?…，同样按 hash 定位）：网页版总有；桌面版本地接口开着时才有
+  // 拷贝链接（http://…/open?…，hash 定位、重建索引后仍有效；媒体带上命中片段的起点）：
+  // 本机点开回到 Vixel，别的设备打开网页查看页。桌面版链接服务没起来（端口被占）时按钮置灰
   const webBase = useWebLinkBase()
-  const copyWebLink = (markdown: boolean): void => {
+  const copyLink = (form: 'url' | 'markdown' | 'thumb'): void => {
     if (!webBase) return
+    const name = media?.fileName ?? photo.fileName
     const url = httpLinkForItem(webBase, photo, segment?.startMs)
-    const text = markdown && photo.fileHash
-      ? markdownThumbLinkForItem(media?.fileName ?? photo.fileName, url, thumbUrlForHash(webBase, photo.fileHash), segment?.startMs)
-      : url
+    const text = form === 'url' ? url
+      : form === 'thumb' && photo.fileHash ? markdownThumbLinkForItem(name, url, thumbUrlForHash(webBase, photo.fileHash), segment?.startMs)
+      : markdownLinkForItem(name, url, segment?.startMs)
     void copyText(text).catch((e) => console.error('Copy failed:', e))
   }
   // 音频代表图没有图片向量，embed_status 永远 pending，不能算"索引中"
@@ -281,8 +277,6 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
                 >
                   {t.web.downloadOriginal}
                 </ActionButton>
-                <ActionButton icon="link" onClick={() => copyWebLink(false)}>{t.menu.copyLink}</ActionButton>
-                <ActionButton icon="link" onClick={() => copyWebLink(true)}>{t.menu.copyWebMarkdown}</ActionButton>
               </>
             ) : (
               <>
@@ -292,17 +286,17 @@ export function Inspector({ result, onSelect, showPreview, onClose, resolution: 
                     {t.inspector.systemPlayer}
                   </ActionButton>
                 )}
-                {/* 深链接（vixel://open?…）：贴进笔记后点击回到 Vixel 定位；网页版隐藏（等价物是 http 链接） */}
-                <ActionButton icon="link" onClick={() => copyDeepLink(false)}>{t.menu.copyLink}</ActionButton>
-                <ActionButton icon="link" onClick={() => copyDeepLink(true)}>{t.menu.copyMarkdownLink}</ActionButton>
-                {webBase && (
-                  <>
-                    <ActionButton icon="link" onClick={() => copyWebLink(false)}>{t.menu.copyWebLink}</ActionButton>
-                    <ActionButton icon="link" onClick={() => copyWebLink(true)}>{t.menu.copyWebMarkdown}</ActionButton>
-                  </>
-                )}
               </>
             )}
+            {[
+              { form: 'url' as const, label: t.menu.copyLink },
+              { form: 'markdown' as const, label: t.menu.copyMarkdownLink },
+              { form: 'thumb' as const, label: t.menu.copyWebMarkdown },
+            ].map(({ form, label }) => (
+              <ActionButton key={form} icon="link" disabled={!webBase} title={webBase ? undefined : t.inspector.linkServiceDown} onClick={() => copyLink(form)}>
+                {label}
+              </ActionButton>
+            ))}
           </div>
         </Section>
 
@@ -440,11 +434,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }):
   )
 }
 
-function ActionButton({ icon, onClick, children }: { icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; children: React.ReactNode }): JSX.Element {
+function ActionButton({ icon, onClick, children, disabled, title }: { icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; children: React.ReactNode; disabled?: boolean; title?: string }): JSX.Element {
   return (
     <button
       onClick={onClick}
-      className="flex-1 basis-auto whitespace-nowrap h-7 px-2 rounded-md bg-fill-hover hover:bg-fill-active text-ink text-callout flex items-center justify-center gap-1.5 transition-colors duration-fast"
+      disabled={disabled}
+      title={title}
+      className="flex-1 basis-auto whitespace-nowrap h-7 px-2 rounded-md bg-fill-hover hover:bg-fill-active text-ink text-callout flex items-center justify-center gap-1.5 transition-colors duration-fast disabled:opacity-40 disabled:hover:bg-fill-hover"
     >
       <Icon name={icon} className="w-3.5 h-3.5 text-ink-2" />
       {children}

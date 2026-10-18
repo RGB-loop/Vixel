@@ -142,15 +142,12 @@ export function popupItemMenu(
       ] as MenuItemConstructorOptions[]),
       { label: multi ? t.menu.revealMany(revealLabel(), count) : revealLabel(), accelerator: 'CmdOrCtrl+Shift+R', click: pick('reveal') },
       { label: multi ? t.menu.copyPaths(count) : t.common.copyPath, click: pick('copy-path') },
-      // 深链接（vixel://open?…，见 shared/deeplink.ts）：贴进笔记，点击回到 Vixel 定位这一项
+      // 拷贝链接（http://…/open?…，见 shared/deeplink.ts）：贴进笔记，本机点开回到 Vixel 定位这一项；
+      // 链接服务没起来（端口被占）时置灰
       ...(multi ? [] : [
-        { label: t.menu.copyLink, click: pick('copy-link') },
-        { label: t.menu.copyMarkdownLink, click: pick('copy-md-link') },
-        // 网页链接（http://…/open?…）：本地接口开着时才有 —— 手机、网页笔记等装不了 Vixel 的地方也能点开
-        ...(webLinks ? [
-          { label: t.menu.copyWebLink, click: pick('copy-web-link') },
-          { label: t.menu.copyWebMarkdown, click: pick('copy-web-md') },
-        ] : []),
+        { label: t.menu.copyLink, enabled: !!webLinks, click: pick('copy-link') },
+        { label: t.menu.copyMarkdownLink, enabled: !!webLinks, click: pick('copy-md-link') },
+        { label: t.menu.copyWebMarkdown, enabled: !!webLinks, click: pick('copy-web-md') },
       ] as MenuItemConstructorOptions[]),
       { label: favorite ? t.organize.unfavorite : t.organize.favorite, accelerator: 'F', registerAccelerator: false, click: pick('toggle-favorite') },
       ...(multi ? [] : [

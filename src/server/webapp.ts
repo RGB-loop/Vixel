@@ -39,7 +39,7 @@ function redirect(res: ServerResponse, to: string): void {
   res.end()
 }
 
-function sendHtml(res: ServerResponse, status: number, html: string): void {
+export function sendHtml(res: ServerResponse, status: number, html: string): void {
   res.writeHead(status, {
     'Content-Type': 'text/html; charset=utf-8',
     'Content-Length': Buffer.byteLength(html),
@@ -50,7 +50,7 @@ function sendHtml(res: ServerResponse, status: number, html: string): void {
 }
 
 /** Accept-Language → 登录页语言（应用内语言由用户设置决定，登录前只有浏览器偏好可用） */
-function loginLocale(req: IncomingMessage): 'zh' | 'en' {
+export function loginLocale(req: IncomingMessage): 'zh' | 'en' {
   const header = req.headers['accept-language'] ?? ''
   return /^\s*zh/i.test(header) ? 'zh' : 'en'
 }
@@ -143,6 +143,36 @@ export function renderLoginPage(locale: 'zh' | 'en'): string {
 </body>
 </html>
 `
+}
+
+/**
+ * 在本机点开链接后浏览器里留下的页面：Vixel 已经跳到那一项，这里只告诉用户可以关掉。
+ * 自包含（无外部资源、无脚本），配色同登录页
+ */
+export function renderOpenedPage(locale: 'zh' | 'en', found: boolean): string {
+  const s = webDict[locale]
+  const esc = (v: string): string => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  const title = found ? s.openedInApp : s.linkNotFound
+  const hint = found ? s.openedInAppHint : s.linkNotFoundHint
+  return `<!doctype html>
+<html lang="${locale === 'zh' ? 'zh-CN' : 'en'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} · Vixel</title>
+<style>
+  :root { --canvas: #0f0f0f; --ink: rgb(255 255 255 / 0.88); --ink-3: rgb(255 255 255 / 0.45); --accent: #d4a574; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root { --canvas: #ffffff; --ink: rgb(0 0 0 / 0.85); --ink-3: rgb(0 0 0 / 0.5); --accent: #a86e38; color-scheme: light; } }
+  * { box-sizing: border-box; margin: 0; }
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--canvas); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { width: min(360px, calc(100vw - 48px)); text-align: center; }
+  h1 { font-size: 17px; font-weight: 600; color: ${found ? 'var(--accent)' : 'var(--ink)'}; }
+  p { margin-top: 6px; color: var(--ink-3); }
+</style>
+</head>
+<body><main><h1>${esc(title)}</h1><p>${esc(hint)}</p></main></body>
+</html>`
 }
 
 export interface WebAppDeps {

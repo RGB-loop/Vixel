@@ -9,6 +9,11 @@ const zh = {
   rateLimited: '尝试次数过多，请稍后再试',
   networkError: '连接失败，请重试',
   webBuildMissing: '网页界面尚未构建：先运行 npm run build:web',
+  // 在本机点开链接（http://localhost:…/open?…）后浏览器里显示的页面（服务器渲染）
+  openedInApp: '已在 Vixel 中打开',
+  openedInAppHint: '可以关闭这个页面了。',
+  linkNotFound: '链接指向的内容不在媒体库中',
+  linkNotFoundHint: '它可能已被移除，或这个链接来自另一个媒体库。',
 
   // 设置 › 访问
   accessSection: '访问',
@@ -31,6 +36,10 @@ const en: typeof zh = {
   rateLimited: 'Too many attempts, try again later',
   networkError: 'Connection failed, please retry',
   webBuildMissing: 'The web UI has not been built yet: run npm run build:web first',
+  openedInApp: 'Opened in Vixel',
+  openedInAppHint: 'You can close this page.',
+  linkNotFound: 'The linked item is not in this library',
+  linkNotFoundHint: 'It may have been removed, or the link comes from another library.',
 
   accessSection: 'Access',
   logout: 'Log out',

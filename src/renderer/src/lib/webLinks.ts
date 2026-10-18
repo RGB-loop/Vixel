@@ -2,18 +2,16 @@ import { useEffect, useState } from 'react'
 import { IS_WEB } from './platform'
 
 /**
- * 网页链接（http://…/open?…，见 shared/deeplink.ts）的基址：
- *   - 网页版：当前站点（NAS 地址 / 桌面"本地接口"地址），浏览器里打开就是这个
- *   - 桌面版："本地接口"在跑时取它的地址 —— 开了局域网访问优先给局域网地址（手机、别的电脑能点开），
- *     否则 127.0.0.1；没开本地接口返回 null，界面不出"拷贝网页链接"
+ * "拷贝链接"的基址（链接形如 http://…/open?…，见 shared/deeplink.ts）：
+ *   - 网页版：当前站点（NAS 地址 / 桌面"本地接口"地址）
+ *   - 桌面版：常驻链接服务的地址 —— 开了局域网访问给局域网地址（手机、别的电脑能点开），否则 localhost；
+ *     服务没起来（端口被占）返回 null，拷贝项置灰并说明原因
+ * 一律给 http 链接而不是 vixel://：笔记、聊天、文档软件都能识别成链接（高亮、可点）
  */
 export async function webLinkBase(): Promise<string | null> {
   if (IS_WEB) return location.origin
   try {
-    const s = await window.api.localApi.status()
-    if (!s.running || s.urls.length === 0) return null
-    const lan = s.lan ? s.urls.find((u) => !/\/\/(127\.0\.0\.1|localhost|\[::1\])/.test(u)) : undefined
-    return lan ?? s.urls[0]
+    return (await window.api.localApi.status()).linkBase
   } catch {
     return null
   }
