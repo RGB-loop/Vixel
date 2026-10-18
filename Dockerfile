@@ -3,6 +3,9 @@
 #
 #   docker buildx build --platform linux/arm64 -t vixel:latest --load .
 #
+# npmjs 慢的网络：--build-arg NPM_REGISTRY=https://registry.npmmirror.com（lock 里的 registry.npmjs.org
+# 地址由 npm 自动换成这个源；只影响下载来源，镜像内容不变）
+#
 # 需要构建前在仓库里准备好（均有 sha256 校验，见 scripts/download-models.mjs）：
 #   resources/models/            EmbeddingGemma 2 (.litertlm) + PaddleOCR + 人脸模型
 #   resources/litert/linux-x64 / linux-arm64   LiteRT-LM 原生库（LITERT_PLATFORM=… 下载）
@@ -10,12 +13,13 @@
 
 # ─── 1. 编译：服务器 TS + 网页前端（平台无关，可被 buildx 跨平台复用）────────────
 FROM node:22-bookworm AS build
+ARG NPM_REGISTRY
 WORKDIR /app
 COPY package.json package-lock.json ./
 # --ignore-scripts：跳过 postinstall（electron-builder install-app-deps 会下载 Electron 并按
 # Electron ABI 重编原生模块 —— 桌面专用；这里只需要 tsc / vite 等纯 JS 工具链）
 # --legacy-peer-deps：react-leaflet 5 声明 peer react 19、仓库用 react 18（运行时兼容，桌面同样组合）
-RUN npm ci --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+RUN npm_config_registry="${NPM_REGISTRY:-https://registry.npmjs.org/}" npm ci --ignore-scripts --legacy-peer-deps --no-audit --no-fund
 COPY tsconfig.json tsconfig.node.json tsconfig.server.json tsconfig.web.json vite.web.config.ts tailwind.config.js postcss.config.js ./
 COPY scripts/server-postbuild.mjs scripts/
 COPY src ./src
@@ -24,6 +28,7 @@ RUN npx tsc -p tsconfig.server.json && node scripts/server-postbuild.mjs \
 
 # ─── 2. 运行时依赖（Node ABI，按目标平台装；docker/package.json 是服务器专属依赖集）──
 FROM node:22-bookworm AS deps
+ARG NPM_REGISTRY
 WORKDIR /app
 COPY docker/package.json docker/package-lock.json ./
 # onnxruntime-node 的 install 脚本在 linux-x64 上默认会去下载 CUDA EP（容器纯 CPU 用不上）；
@@ -31,7 +36,7 @@ COPY docker/package.json docker/package-lock.json ./
 # 瘦身：onnxruntime-node 自带全平台二进制（darwin / win32 / 另一个 linux 架构 ~230 MB）只留本架构；
 # sharp / @napi-rs/canvas 的 musl 变体（Debian 是 glibc）不会被加载，删掉
 ARG TARGETARCH
-RUN npm_config_onnxruntime_node_install=skip npm ci --omit=dev --no-audit --no-fund \
+RUN npm_config_registry="${NPM_REGISTRY:-https://registry.npmjs.org/}" npm_config_onnxruntime_node_install=skip npm ci --omit=dev --no-audit --no-fund \
  && npm cache clean --force \
  && case "$TARGETARCH" in amd64) keep=x64 ;; arm64) keep=arm64 ;; *) exit 1 ;; esac \
  && ort=node_modules/onnxruntime-node/bin/napi-v6 \
