@@ -6,6 +6,9 @@
 
 **Find the moment in your photos and videos by describing it.**
 Local AI search for photos, videos and audio. Fully offline, no account, nothing uploaded.
+Powered by Google **EmbeddingGemma 2** · macOS / Windows / Docker (NAS) · MCP
+
+[![Release](https://img.shields.io/github/v/release/RGB-loop/Vixel)](https://github.com/RGB-loop/Vixel/releases/latest) [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Frgb--loop%2Fvixel-2496ED?logo=docker&logoColor=white)](#server--nas-edition-docker) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [中文](README.md) · English
 

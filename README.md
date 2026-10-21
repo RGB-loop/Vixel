@@ -4,10 +4,13 @@
 
 # Vixel
 
-**重新认识你的照片库。**
+**用一句话找到照片和视频里的那一刻。**
 本地 AI 照片 / 视频 / 音频搜索 —— 全程离线，数据不出设备，无需 API Key。
+基于 Google **EmbeddingGemma 2** · macOS / Windows / Docker（NAS） · 支持 MCP
 
 *AI-powered local search for photos, videos and audio. Private. Offline. No cloud.*
+
+[![Release](https://img.shields.io/github/v/release/RGB-loop/Vixel)](https://github.com/RGB-loop/Vixel/releases/latest) [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Frgb--loop%2Fvixel-2496ED?logo=docker&logoColor=white)](#服务器--nas-版docker) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 中文 · [English](README.en.md)
 
