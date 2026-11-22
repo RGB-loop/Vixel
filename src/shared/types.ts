@@ -436,7 +436,7 @@ export interface ModelStatus {
   /** 后端偏好 */
   backend: 'auto' | 'gpu' | 'cpu'
   initError: string | null
-  /** CPU 没有 AVX，语义模型跑不了（服务器版 / Linux x64），见 semanticCpuUnsupported */
+  /** CPU 缺少语义模型需要的指令集（x86 要 AVX：Linux 预判 /proc/cpuinfo，Windows 在引擎创建失败后补判），见 semanticCpuUnsupported */
   cpuUnsupported: boolean
 }
 
