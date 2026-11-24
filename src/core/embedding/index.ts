@@ -8,6 +8,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { release } from 'os'
 import { join } from 'path'
 import type {
   EmbeddingProvider,
@@ -67,8 +68,10 @@ export function missingCpuFlags(cpuinfo: string, arch: string): string[] {
 }
 
 /**
- * 这颗 CPU 跑不了语义模型（只在 Linux 上判断：服务器版 / Docker）。这时整个语义通道停用 ——
- * 不加载、不重试，OCR / 人脸 / 文件名 / 标签照常。结果缓存。
+ * 这颗 CPU 跑不了语义模型。这时整个语义通道停用 —— 不加载、不重试，
+ * OCR / 人脸 / 文件名 / 标签照常。结果缓存。
+ * Linux（服务器版 / Docker）读 /proc/cpuinfo 预判；Windows 没有等价物，
+ * 在引擎创建失败后由 diagnoseEngineFailure 补判（见下）。
  */
 let _cpuUnsupported: boolean | undefined
 export function semanticCpuUnsupported(): boolean {
@@ -85,6 +88,50 @@ export function semanticCpuUnsupported(): boolean {
     }
   }
   return _cpuUnsupported
+}
+
+/** 这个错误 = CPU 后端（最后的退路）也没能创建引擎（见 providers/litert/native.ts）。导出给测试 */
+export function cpuEngineCreationFailed(err: unknown): boolean {
+  return /failed to create cpu engine/.test(String(err))
+}
+
+/**
+ * Windows：这颗 CPU 是否缺 AVX（LiteRT x64 预编译库的硬门槛，V2EX #7 报的
+ * "failed to create cpu engine" 就是老 CPU 上这样出来的）。
+ *
+ * 只用来在引擎创建已经失败之后解释原因，绝不预判拦截：
+ *   - Hyper-V 开着时 IsProcessorFeaturePresent 可能把有 AVX 的 CPU 报成没有（预判会误伤）
+ *   - PF_AVX_INSTRUCTIONS_AVAILABLE(39) 要 Win10 2004（build 19041）起才有效，
+ *     更老的系统对它一律返回 false，分不清「没 AVX」和「系统太老」，所以 build 不够直接放弃判断
+ */
+function windowsCpuLacksAvx(): boolean {
+  if (process.platform !== 'win32' || process.arch !== 'x64') return false
+  const build = Number(release().split('.')[2])
+  if (!(build >= 19041)) return false
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const koffi = require('koffi') as typeof import('koffi')
+    const kernel32 = koffi.load('kernel32.dll')
+    const isFeaturePresent = kernel32.func('bool __stdcall IsProcessorFeaturePresent(uint32 feature)')
+    return !isFeaturePresent(39 /* PF_AVX_INSTRUCTIONS_AVAILABLE */)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 引擎创建失败后的诊断：Windows 上 CPU 后端都起不来、且系统确认没有 AVX →
+ * 按「CPU 不支持」处理（与 Linux 服务器版同一套 UI：状态栏 / 设置页解释清楚，
+ * 索引器跳过语义通道，OCR / 人脸 / 文件名 / 标签照常）。返回是否据此改判。
+ */
+function diagnoseEngineFailure(err: unknown): boolean {
+  if (_cpuUnsupported) return true
+  if (cpuEngineCreationFailed(err) && windowsCpuLacksAvx()) {
+    _cpuUnsupported = true
+    console.warn('[embedding] CPU lacks AVX — semantic model can\'t run here')
+    return true
+  }
+  return false
 }
 
 /** LiteRT 运行时 + 模型是否都在 */
@@ -173,7 +220,14 @@ class EmbeddingService {
       this.initError = null
       console.log(`Embedding service initialized with provider: ${this.config.type}`)
     } catch (error) {
-      this.initError = String(error)
+      if (diagnoseEngineFailure(error)) {
+        // Windows 老 CPU（没有 AVX）：换成「CPU 不支持」的完整解释，丢掉 provider，后续不再重试
+        this.initError = t.model.cpuUnsupported
+        await this.provider?.dispose().catch(() => {})
+        this.provider = null
+      } else {
+        this.initError = String(error)
+      }
       console.error('Embedding service init failed:', error)
     }
   }
