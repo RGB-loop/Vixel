@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-11-24
+
+### Fixed
+- **Windows on CPUs without AVX now says so, instead of failing silently.** The bundled
+  LiteRT-LM runtime requires AVX on x64 (Intel/AMD since ~2011; N-/J-series Celeron and
+  similar lack it). On such machines the engine failed with a raw
+  `LiteRT: failed to create cpu engine` and semantic search quietly stayed dead while the
+  indexer kept retrying. The desktop app now recognizes this case after the failure
+  (via `IsProcessorFeaturePresent`, trusted only on Windows 10 2004+ and never used to
+  pre-emptively block, since Hyper-V can hide AVX from that API): the status bar and
+  Settings explain that the CPU can't run the semantic model, the semantic channel stops
+  retrying, and text-in-image, face, filename and tag search keep working — the same
+  behavior the server edition already had on AVX-less NAS boxes. (Reported on V2EX.)
+
+### Changed
+- CI moved from the retired `macos-14` runner image to `macos-15`.
+- Docker build accepts `--build-arg NPM_REGISTRY=…` for networks where npmjs is slow.
+
 ## [0.5.3] - 2026-10-18
 
 ### Changed
