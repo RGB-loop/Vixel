@@ -18,9 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-14 / macos-15 = Apple Silicon runners
+        # macos-15 = Apple Silicon runner（macos-14 镜像 2026-11 起排队即被取消，已退役）
         # ubuntu 用来验证非 macOS 的 ONNX/jieba 二进制能正常解析
-        os: [macos-14, ubuntu-latest]
+        os: [macos-15, ubuntu-latest]
         # 22：服务器版（Docker 镜像）跑在 Node 22 上，pdf.js 用到 Promise.withResolvers（Node 20 没有）
         node: ['22']
 
